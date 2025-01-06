@@ -30,11 +30,11 @@ def main():
     T = 1.0
 
     seed = 2349873
-    num_epochs = 50000
-    lr = 1e-4
+    num_epochs = 10000
+    lr = 1e-3
     num_data = 10
     lambda_data = 5.0
-    a0 = 2.0
+    a0 = 3.0
     rng = np.random.default_rng(seed=seed)
 
     xd, td, ud = generate_data(num_data, L, T, a=1.0, rng=rng)
