@@ -8,12 +8,12 @@ def main():
 
     """
     Solve the advection equation in 1D
-    du/dt - a * du/dx = 0
+    du/dt + a * du/dx = 0
     with periodic B.C.
     and a sine initial conditions
     """
 
-    num_epochs = 500000
+    num_epochs = 200000
     lr = 0.001
 
     a = 1.0
@@ -37,9 +37,9 @@ def main():
 
     def compute_loss(u):
         dudt = torch.diff(u, dim=1) / dt
-        dudx = (torch.roll(u, shifts=1, dims=0) - u) / dx
+        dudx = (torch.roll(u, shifts=-1, dims=0) - torch.roll(u, shifts=+1, dims=0)) / (2 * dx)
 
-        pde_residuals = dudt - a * dudx[:,1:] # forward euler
+        pde_residuals = dudt + a * dudx[:,1:] # forward euler
         bc_residuals = u[:,0] - u0
         loss = torch.sum(pde_residuals**2) + torch.sum(bc_residuals**2)
         return loss
