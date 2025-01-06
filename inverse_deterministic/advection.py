@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.optim import Adam
 
-def generate_data(num_data, L, T, a, rng):
+def generate_data(num_data, L, T, a, rng, sigma=0.1):
     """
     Parameters:
         num_data: number of samples to generate
@@ -12,10 +12,11 @@ def generate_data(num_data, L, T, a, rng):
         T: end time
         a: velocity
         rng: numpy random number generator
+        sigma: noise level
     """
     x = rng.uniform(0, L, num_data)
     t = rng.uniform(0, T, num_data)
-    u = np.sin((x - a * t) * 2 * np.pi / L)
+    u = np.sin((x - a * t) * 2 * np.pi / L) + rng.normal(0, sigma, num_data)
     return x, t, u
 
 
@@ -23,8 +24,9 @@ def main():
     """
     Solve the advection equation in 1D
     du/dt + a * du/dx = 0
-    with periodic B.C.
-    and a sine initial conditions
+    with periodic B.C. and a sine initial conditions.
+
+    The parameter a is unknown and we find it through ODIL.
     """
     L = 1.0
     T = 1.0
