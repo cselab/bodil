@@ -32,9 +32,9 @@ def main():
     T = 1.0
 
     seed = 2349873
-    num_epochs = 20000
-    lr = 1e-4
-    num_data = 10
+    num_epochs = 100000
+    lr = 1e-3
+    num_data = 20
     lambda_data = 5.0
     a0 = 1.0
     rng = np.random.default_rng(seed=seed)
@@ -57,12 +57,10 @@ def main():
     u0 = torch.sin(x * 2 * np.pi / L)
     u = torch.zeros((nx, nt), requires_grad=True)
     a = torch.tensor(a0, requires_grad=True)
-    sigma_pde = torch.tensor(1.0, requires_grad=True)
-    sigma_data = torch.tensor(1.0, requires_grad=True)
-    sigma_ic = torch.tensor(1.0, requires_grad=True)
+    sigma = torch.tensor(1.0, requires_grad=True)
 
 
-    optim = Adam([u, a, sigma_pde, sigma_ic, sigma_data], lr=lr)
+    optim = Adam([u, a, sigma], lr=lr)
 
     def compute_loss():
         dudt = torch.diff(u, dim=1) / dt
@@ -71,9 +69,9 @@ def main():
         pde_residuals = dudt + a * dudx[:,1:] # forward euler
         ic_residuals = u[:,0] - u0
         data_residuals = u[xd_ids,td_ids] - ud
-        s2pde = sigma_pde**2 / np.sqrt(nx * nt)
-        s2ic = sigma_ic**2 / np.sqrt(nx)
-        s2data = sigma_data**2 / np.sqrt(num_data)
+        s2pde = sigma**2 / np.sqrt(nx * nt)
+        s2ic = sigma**2 / np.sqrt(nx)
+        s2data = sigma**2 / np.sqrt(num_data) / lambda_data
         loss = torch.sum(pde_residuals**2) / (2 * s2pde) + nx * nt * torch.log(s2pde) / 2
         loss += torch.sum(ic_residuals**2) / (2 * s2ic**2) + nx * torch.log(s2ic) / 2
         loss += torch.sum(data_residuals**2) / (2 * s2data) + num_data * torch.log(s2data) / 2
@@ -88,11 +86,9 @@ def main():
         optim.step()
         l = float(loss.detach().cpu().float())
         a_ = float(a.detach().cpu().float())
-        s2pde = float(sigma_pde.detach().cpu().float())**2
-        s2ic = float(sigma_ic.detach().cpu().float())**2
-        s2data = float(sigma_data.detach().cpu().float())**2
+        sigma2 = float(sigma.detach().cpu().float())**2
         if epoch % 1000 == 0:
-            print(f"epoch {epoch:06d}, loss {l:.6e}, a {a_:.6f}, sigma^2[pde,ic,data] {s2pde:.4e} {s2ic:.4e} {s2data:.4e}")
+            print(f"epoch {epoch:06d}, loss {l:.6e}, a {a_:.6f}, sigma^2 {sigma2:.4e}")
 
         losses.append(l)
 
