@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from torch.optim import Adam
+from torch.optim import LBFGS
 
 def main():
 
@@ -13,8 +13,8 @@ def main():
     and a sine initial conditions
     """
 
-    num_epochs = 25000
-    lr = 1e-4
+    num_epochs = 100
+    lr = 1e-2
 
     a = 1.0
 
@@ -33,7 +33,7 @@ def main():
     u0 = torch.sin(x * 2 * np.pi / L)
     u = torch.zeros((nx, nt), requires_grad=True)
 
-    optim = Adam([u], lr=lr)
+    optim = LBFGS([u], lr=lr)
 
     def compute_loss(u):
         dudt = torch.diff(u, dim=1) / dt
@@ -47,12 +47,15 @@ def main():
     epochs = list(range(num_epochs))
     losses = []
     for epoch in epochs:
-        optim.zero_grad()
-        loss = compute_loss(u)
-        loss.backward()
-        optim.step()
-        l = float(loss.detach().cpu().float())
-        if epoch % 1000 == 0:
+        def closure():
+            optim.zero_grad()
+            loss = compute_loss(u)
+            loss.backward()
+            return loss
+        optim.step(closure)
+
+        if epoch % 10 == 0:
+            l = float(compute_loss(u).item())
             print(f"epoch {epoch:06d}, loss {l:.6e}")
 
         losses.append(l)
