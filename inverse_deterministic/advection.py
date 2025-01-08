@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-from torch.optim import Adam
+from torch.optim import LBFGS
 
 def generate_data(num_data, L, T, a, rng, sigma=0.1):
     """
@@ -32,11 +32,11 @@ def main():
     T = 1.0
 
     seed = 2349873
-    num_epochs = 10000
+    num_epochs = 500
     lr = 1e-3
     num_data = 10
-    lambda_data = 5.0
-    a0 = 3.0
+    lambda_data = 0.1
+    a0 = 0.8
     rng = np.random.default_rng(seed=seed)
 
     xd, td, ud = generate_data(num_data, L, T, a=1.0, rng=rng)
@@ -58,7 +58,7 @@ def main():
     u = torch.zeros((nx, nt), requires_grad=True)
     a = torch.tensor(a0, requires_grad=True)
 
-    optim = Adam([u, a], lr=lr)
+    optim = LBFGS([u, a], lr=lr)
 
     def compute_loss(u, a):
         dudt = torch.diff(u, dim=1) / dt
@@ -74,13 +74,16 @@ def main():
     epochs = list(range(num_epochs))
     losses = []
     for epoch in epochs:
-        optim.zero_grad()
-        loss = compute_loss(u, a)
-        loss.backward()
-        optim.step()
-        l = float(loss.detach().cpu().float())
-        a_ = float(a.detach().cpu().float())
-        if epoch % 1000 == 0:
+        def closure():
+            optim.zero_grad()
+            loss = compute_loss(u, a)
+            loss.backward()
+            return loss
+        optim.step(closure)
+
+        if epoch % 10 == 0:
+            l = compute_loss(u, a).item()
+            a_ = a.item()
             print(f"epoch {epoch:06d}, loss {l:.6e}, a {a_:.6f}")
 
         losses.append(l)
