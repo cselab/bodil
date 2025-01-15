@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.optim import LBFGS
 
-def generate_data(num_data, L, T, a, rng, sigma=0.1):
+def generate_data(num_data, L, T, a, rng, sigma=0.):
     """
     Parameters:
         num_data: number of samples to generate
@@ -88,15 +88,18 @@ def main():
 
         losses.append(l)
 
+    u = u.detach().numpy()
+    dudt = np.diff(u, axis=1) / dt
+    dudx = (np.roll(u, shift=-1, axis=0) - u) / dx
+    residuals = dudt + a.item() * dudx[:,1:]
 
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
-    ax.imshow(u.detach().numpy().T,
+    ax.imshow(u.T,
               origin='lower')
     ax.set_xlabel(r"$x$")
     ax.set_ylabel(r"$t$")
     plt.show()
-
     plt.close(fig)
 
     fig, ax = plt.subplots()
@@ -105,6 +108,14 @@ def main():
     ax.set_ylabel("loss")
     ax.set_yscale('log')
     plt.show()
+    plt.close(fig)
+
+    fig, ax = plt.subplots()
+    ax.hist(residuals.flatten(), bins=100, range=[-0.02, 0.02], density=True)
+    ax.set_xlabel("residual")
+    #ax.set_yscale('log')
+    plt.show()
+    plt.close(fig)
 
 
 
