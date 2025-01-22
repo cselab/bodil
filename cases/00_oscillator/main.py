@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from torch.optim import Adam
 
+from uq_odil.HMC import HMC
+
 def generate_data(num_data, T, omega, x0, v0, rng, sigma):
     """
     Parameters:
@@ -33,10 +35,12 @@ def main():
 
     seed = 2349873
     num_epochs = 2500
+    num_samples = 10000
     lr = 1e-3
     num_data = 20
-    lambda_data = 1e-2
+    lambda_data = 1
     sigma_data = 0.1
+    sigma_ode = sigma_data * lambda_data
     a0 = 1.0
     rng = np.random.default_rng(seed=seed)
 
@@ -83,24 +87,57 @@ def main():
         losses.append(l)
 
 
+    def log_posterior():
+        x = y[:,0]
+        v = y[:,1]
+        dxdt = torch.diff(x) / dt
+        dvdt = torch.diff(v) / dt
+        xm = (x[:-1] + x[1:]) / 2
+        vm = (v[:-1] + v[1:]) / 2
+
+        ode1_res = dxdt - vm
+        ode2_res = dvdt + omega * xm
+        data_res = x[td_ids] - xd
+
+        log_like  = torch.sum(-ode1_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
+        log_like += torch.sum(-ode2_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
+        log_like += torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
+
+        return log_like
+
+    hmc = HMC([y], dt=0.05 * sigma_ode, L=10, M=0.5 * sigma_ode)
+
+    def closure():
+        hmc.zero_grad()
+        U = -log_posterior()
+        U.backward()
+        return U
+
+    samples = []
+    for k in range(num_samples):
+        y_, H_ = hmc.step(closure)
+        samples.append(y_[0].detach().numpy())
+
+    samples = np.array(samples)
+
+    x_samples = samples[:, :, 0]
+    x_mean = np.mean(x_samples, axis=0)
+    x_lo = np.quantile(x_samples, q=0.1, axis=0)
+    x_hi = np.quantile(x_samples, q=0.9, axis=0)
+    print(samples[:50,0,0])
+
     xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
+
     fig, ax = plt.subplots()
-    ax.plot(t, xexact, '--b')
-    ax.plot(t, y[:,0].detach().numpy(), '-k')
-    ax.plot(td, xd.detach().numpy(), '+r')
+    ax.fill_between(t, x_lo, x_hi, lw=0, color='r', alpha=0.2)
+    ax.plot(t, x_mean, '-r')
+    ax.plot(t, xexact, '--k')
+    ax.plot(td, xd.detach().numpy(), '+k')
     ax.set_xlabel(r"$t$")
     ax.set_ylabel(r"$x$")
     ax.set_xlim(0, T)
     plt.show()
 
-    plt.close(fig)
-
-    fig, ax = plt.subplots()
-    ax.plot(epochs, losses)
-    ax.set_xlabel("epoch")
-    ax.set_ylabel("loss")
-    #ax.set_yscale('log')
-    plt.show()
 
 
 
