@@ -25,12 +25,14 @@ def main():
         return U
 
     samples = []
-
+    num_accepted = 0
     for k in range(num_samples + burnin):
-        x_, H = hmc.step(closure)
+        x_, H, accepted = hmc.step(closure)
         if k >= burnin:
+            num_accepted += accepted
             samples.append(x_[0].detach().numpy())
 
+    print(f"accptence rate: {num_accepted/num_samples}")
     samples = np.array(samples)
 
     r = 4 * sig

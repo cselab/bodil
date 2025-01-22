@@ -102,7 +102,7 @@ class HMC(Optimizer):
             with torch.no_grad():
                 p -= dt/2 * gradU
                 # r += dt/M * p
-                self._add_grad(step_size=dt/M, update=p)
+                self._add_grad(step_size=dt, update=p/M)
 
             U = closure()
 
@@ -118,11 +118,13 @@ class HMC(Optimizer):
             # accept
             H_ = H.item()
             x_ = self._clone_param()
+            accepted = 1
         else:
             # reject
             with torch.no_grad():
                 self._set_param(r_init)
             H_ = H0.item()
             x_ = self._clone_param()
+            accepted = 0
 
-        return x_, H_
+        return x_, H_, accepted

@@ -114,10 +114,13 @@ def main():
         return U
 
     samples = []
+    num_accepted = 0
     for k in range(num_samples):
-        y_, H_ = hmc.step(closure)
+        y_, H_, accepted = hmc.step(closure)
         samples.append(y_[0].detach().numpy())
+        num_accepted += accepted
 
+    print(f"accptence rate: {num_accepted/num_samples}")
     samples = np.array(samples)
 
     x_samples = samples[:, :, 0]
