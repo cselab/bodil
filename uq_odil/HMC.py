@@ -31,8 +31,6 @@ class HMC(Optimizer):
         self._dt = dt
         self._M = M
         self._L = L
-        self._p = self._gen_p()
-
 
     def _numel(self):
         if self._numel_cache is None:
@@ -97,7 +95,7 @@ class HMC(Optimizer):
 
         r_init = self._clone_param()
         U = closure()
-        H0 = U + torch.sum(self._p**2) / (2 * M)
+        H0 = U + torch.sum(p**2) / (2 * M)
         gradU = self._gather_flat_grad()
 
         for i in range(self._L):
@@ -120,7 +118,6 @@ class HMC(Optimizer):
             # accept
             H_ = H.item()
             x_ = self._clone_param()
-            self._p = p
         else:
             # reject
             with torch.no_grad():

@@ -9,12 +9,13 @@ from uq_odil.HMC import HMC
 def main():
     device = 'cpu'
     dim = 1
-    num_samples = 2000
+    num_samples = 10000
+    sig = 2.0
 
     x = torch.zeros(dim, requires_grad=True)
-    sigma = torch.FloatTensor([1.0] * dim)
+    sigma = torch.FloatTensor([sig] * dim)
 
-    hmc = HMC([x], dt=0.05, L=5, M=0.2)
+    hmc = HMC([x], dt=0.05, L=10, M=1.0)
 
     def closure():
         hmc.zero_grad()
@@ -30,8 +31,15 @@ def main():
 
     samples = np.array(samples)
 
+    r = 4 * sig
+    x = np.linspace(-r, r, 256)
+    p = np.exp(-x**2 / (2 * sig**2)) / np.sqrt(2 * np.pi * sig**2)
+
     fig, ax = plt.subplots()
-    ax.hist(samples[:,0], range=(-2, 2), bins=50)
+    ax.hist(samples[:,0], range=(-r, r), bins=50, density=True)
+    ax.plot(x, p, '-r')
+    ax.set_xlim(-r, r)
+    ax.set_ylim(0, 1.3 * np.max(p))
     plt.show()
 
 if __name__ == '__main__':
