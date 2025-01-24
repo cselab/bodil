@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from torch.optim import Adam
 
@@ -98,6 +99,7 @@ def main():
     H = H.detach().numpy()
     Hx = H[:nt+1,:nt+1]
 
+
     fig, ax = plt.subplots()
     #im = ax.imshow(np.linalg.inv(H), origin='lower', cmap="Reds")
     im = ax.imshow(H, origin='lower', cmap="Reds")
@@ -106,6 +108,9 @@ def main():
     ax.get_yaxis().set_visible(False)
     plt.show()
     plt.close
+
+    with open('laplace_hessian.npy', 'wb') as f:
+        np.save(f, H)
 
     # sample solutions x.
     num_samples = 5000
@@ -124,7 +129,6 @@ def main():
     vmean = np.mean(samples[len(x):], axis=1)
     vlo = np.quantile(samples[len(x):], q=0.05, axis=1)
     vhi = np.quantile(samples[len(x):], q=0.95, axis=1)
-
 
     fig, axes = plt.subplots(ncols=2, figsize=(9.6,4.8))
     ax = axes[0]
@@ -149,6 +153,29 @@ def main():
 
     plt.tight_layout()
     plt.show()
+
+    data = {
+        't': t,
+        'xmap': x,
+        'xexact': xexact,
+        'x05': xlo,
+        'x95': xhi,
+        'vmap': v,
+        'vexact': vexact,
+        'v05': vlo,
+        'v95': vhi
+    }
+
+    df = pd.DataFrame(data)
+    df.to_csv('laplace_pred.csv', index=False)
+
+    data = {
+        't': td,
+        'x': xd.detach().numpy()
+    }
+
+    df = pd.DataFrame(data)
+    df.to_csv('laplace_data.csv', index=False)
 
 
 
