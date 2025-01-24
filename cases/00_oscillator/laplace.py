@@ -37,7 +37,7 @@ def main():
     lr = 1e-3
     num_data = 10
     sigma_data = 0.1
-    sigma_ode = 0.2
+    sigma_ode = 0.1
     rng = np.random.default_rng(seed=seed)
 
     td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
@@ -46,10 +46,11 @@ def main():
     t = np.linspace(0, T, nt + 1, endpoint=True)
 
     xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
+    vexact = v0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
 
     dt = t[1] - t[0]
 
-    y = torch.zeros((nt + 1, 2), requires_grad=True)
+    y = torch.zeros((nt + 1) * 2, requires_grad=True)
 
     td_ids = torch.from_numpy((td / dt).astype(int))
     xd = torch.from_numpy(xd)
@@ -58,8 +59,8 @@ def main():
     optim = Adam([y], lr=lr)
 
     def neg_log_posterior(y):
-        x = y[:,0]
-        v = y[:,1]
+        x = y[:nt+1]
+        v = y[nt+1:]
         dxdt = torch.diff(x) / dt
         dvdt = torch.diff(v) / dt
         xm = (x[:-1] + x[1:]) / 2
@@ -72,7 +73,6 @@ def main():
         log_like  = torch.sum(-ode1_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
         log_like += torch.sum(-ode2_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
         log_like += torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
-        #log_like += -(x[0] - x0)**2 / (2 * sigma_ode**2) - 1/2 * np.log(2 * np.pi * sigma_ode**2)
 
         return -log_like
 
@@ -91,13 +91,16 @@ def main():
 
     H = torch.autograd.functional.hessian(neg_log_posterior, y, create_graph=True)
 
-    x = y[:,0].detach().numpy()
+    y = y.detach().numpy()
+    x = y[:nt+1]
+    v = y[nt+1:]
 
     H = H.detach().numpy()
-    Hx = H[:,0,:,0]
+    Hx = H[:nt+1,:nt+1]
 
     fig, ax = plt.subplots()
-    im = ax.imshow(np.linalg.inv(Hx), origin='lower', cmap="Reds")
+    #im = ax.imshow(np.linalg.inv(H), origin='lower', cmap="Reds")
+    im = ax.imshow(H, origin='lower', cmap="Reds")
     fig.colorbar(im, ax=ax)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
@@ -106,20 +109,25 @@ def main():
 
     # sample solutions x.
     num_samples = 5000
-    samples = np.zeros((len(x), num_samples))
+    samples = np.zeros((len(x) + len(v), num_samples))
 
-    eigvals, eigvecs = np.linalg.eig(Hx)
+    eigvals, eigvecs = np.linalg.eig(H)
 
     for k in range(num_samples):
-        z = rng.normal(0, 1/np.sqrt(eigvals), len(x))
-        samples[:,k] = x + eigvecs @ z
+        z = rng.normal(0, 1/np.sqrt(eigvals), len(x) + len(v))
+        samples[:,k] = y + eigvecs @ z
 
-    xmean = np.mean(samples, axis=1)
-    xlo = np.quantile(samples, q=0.05, axis=1)
-    xhi = np.quantile(samples, q=0.95, axis=1)
+    xmean = np.mean(samples[:len(x)], axis=1)
+    xlo = np.quantile(samples[:len(x)], q=0.05, axis=1)
+    xhi = np.quantile(samples[:len(x)], q=0.95, axis=1)
+
+    vmean = np.mean(samples[len(x):], axis=1)
+    vlo = np.quantile(samples[len(x):], q=0.05, axis=1)
+    vhi = np.quantile(samples[len(x):], q=0.95, axis=1)
 
 
-    fig, ax = plt.subplots()
+    fig, axes = plt.subplots(ncols=2, figsize=(9.6,4.8))
+    ax = axes[0]
     ax.fill_between(t, xlo, xhi, lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
     ax.plot(t, x, '-r', label='MAP')
     ax.plot(t, xexact, '--k', label='exact')
@@ -129,10 +137,18 @@ def main():
     ax.set_xlim(0, T)
     ax.set_ylim(-1.5, 1.5)
     ax.legend(frameon=False)
+
+    ax = axes[1]
+    ax.fill_between(t, vlo, vhi, lw=0, alpha=0.2, color='r')
+    ax.plot(t, v, '-r')
+    ax.plot(t, vexact, '--k')
+    ax.set_xlabel(r"$t$")
+    ax.set_ylabel(r"$v$")
+    ax.set_xlim(0, T)
+    ax.set_ylim(-1.5, 1.5)
+
+    plt.tight_layout()
     plt.show()
-
-
-
 
 
 
