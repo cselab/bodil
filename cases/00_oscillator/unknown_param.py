@@ -33,14 +33,11 @@ def main():
     v0 = 0.2
 
     seed = 2349873
-    num_epochs = 2500
-    num_samples = 1000
+    num_epochs = 2000
     lr = 1e-3
     num_data = 20
     lambda_data = 1
     sigma_data = 0.1
-    sigma_ode = sigma_data * lambda_data
-    a0 = 1.0
     rng = np.random.default_rng(seed=seed)
 
     td, xd = generate_data(num_data, T, omega=omega0, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
@@ -94,16 +91,23 @@ def main():
         return log_like
 
 
-    omegas = np.linspace(0.1, 1.9, 50)
+    omegas = np.linspace(0.0, 2.0, 100)
     p = []
     sigma = sigma_data
     for w in omegas:
         p.append(log_posterior(w, sigma))
 
-    fig, ax = plt.subplots()
-    ax.plot(omegas, np.exp(p))
-    ax.set_xlabel(r'$\omega$')
+    dw = omegas[1] - omegas[0]
+    p = np.array(p)
+    p = np.exp(p)
+    p /= dw * np.sum(p)
 
+    fig, ax = plt.subplots()
+    ax.plot(omegas, p)
+    ax.set_xlabel(r'$\omega$')
+    ax.set_ylabel(r'$p(\omega | D)$')
+    ax.set_xlim(0, 2)
+    ax.set_ylim(0, None)
     plt.show()
 
 
