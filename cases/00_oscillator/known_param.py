@@ -18,7 +18,7 @@ def generate_data(num_data, T, omega, x0, v0, rng, sigma):
         rng: numpy random number generator
         sigma: noise level
     """
-    t = rng.uniform(0, T, num_data)
+    t = rng.uniform(0, T/4, num_data)
     x = v0 / omega * np.sin(omega * t) + x0 * np.cos(omega * t) + rng.normal(0, sigma, num_data)
     return t, x
 
@@ -34,20 +34,17 @@ def main():
     v0 = 0.2
 
     seed = 2349873
-    num_epochs = 2500
+    num_epochs = 5000
     num_samples = 10000
     lr = 1e-3
-    num_data = 20
-    lambda_data = 1
+    num_data = 10
     sigma_data = 0.1
-    sigma_ode = sigma_data * lambda_data
-    a0 = 1.0
+    sigma_ode = 0.1
     rng = np.random.default_rng(seed=seed)
 
     td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
 
-    nt = 32
-
+    nt = 63
     t = np.linspace(0, T, nt + 1, endpoint=True)
     dt = t[1] - t[0]
     y = torch.zeros((nt + 1, 2), requires_grad=True)
@@ -57,37 +54,7 @@ def main():
 
     optim = Adam([y], lr=lr)
 
-    def compute_loss():
-        x = y[:,0]
-        v = y[:,1]
-        dxdt = torch.diff(x) / dt
-        dvdt = torch.diff(v) / dt
-        xm = (x[:-1] + x[1:]) / 2
-        vm = (v[:-1] + v[1:]) / 2
-
-        ode1_res = dxdt - vm
-        ode2_res = dvdt + omega * xm
-        data_res = x[td_ids] - xd
-
-        loss = torch.mean(ode1_res**2) + torch.mean(ode2_res**2)
-        loss += lambda_data * torch.mean(data_res**2)
-        return loss
-
-    epochs = list(range(num_epochs))
-    losses = []
-    for epoch in epochs:
-        optim.zero_grad()
-        loss = compute_loss()
-        loss.backward()
-        optim.step()
-        l = float(loss.detach().cpu().float())
-        if epoch % 1000 == 0:
-            print(f"epoch {epoch:06d}, loss {l:.6e}")
-
-        losses.append(l)
-
-
-    def log_posterior():
+    def neg_log_posterior(y):
         x = y[:,0]
         v = y[:,1]
         dxdt = torch.diff(x) / dt
@@ -103,13 +70,27 @@ def main():
         log_like += torch.sum(-ode2_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
         log_like += torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
 
-        return log_like
+        return -log_like
 
-    hmc = HMC([y], dt=0.05 * sigma_ode, L=10, M=0.5 * sigma_ode)
+    epochs = list(range(num_epochs))
+    losses = []
+    for epoch in epochs:
+        optim.zero_grad()
+        loss = neg_log_posterior(y)
+        loss.backward()
+        optim.step()
+        l = float(loss.detach().cpu().float())
+        if epoch % 1000 == 0:
+            print(f"epoch {epoch:06d}, loss {l:.6e}")
+
+        losses.append(l)
+
+
+    hmc = HMC([y], dt=0.01, L=10, M=10)
 
     def closure():
         hmc.zero_grad()
-        U = -log_posterior()
+        U = neg_log_posterior(y)
         U.backward()
         return U
 
