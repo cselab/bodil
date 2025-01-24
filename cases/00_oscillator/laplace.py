@@ -16,7 +16,7 @@ def generate_data(num_data, T, omega, x0, v0, rng, sigma):
         rng: numpy random number generator
         sigma: noise level
     """
-    t = rng.uniform(0, T, num_data)
+    t = rng.uniform(0, T/4, num_data)
     x = v0 / omega * np.sin(omega * t) + x0 * np.cos(omega * t) + rng.normal(0, sigma, num_data)
     return t, x
 
@@ -35,9 +35,9 @@ def main():
     num_epochs = 5000
     num_samples = 10000
     lr = 1e-3
-    num_data = 20
+    num_data = 10
     sigma_data = 0.1
-    sigma_ode = 0.5
+    sigma_ode = 0.2
     rng = np.random.default_rng(seed=seed)
 
     td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
@@ -72,7 +72,7 @@ def main():
         log_like  = torch.sum(-ode1_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
         log_like += torch.sum(-ode2_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
         log_like += torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
-        log_like += -(x[0] - x0)**2 / (2 * sigma_ode**2) - 1/2 * np.log(2 * np.pi * sigma_ode**2)
+        #log_like += -(x[0] - x0)**2 / (2 * sigma_ode**2) - 1/2 * np.log(2 * np.pi * sigma_ode**2)
 
         return -log_like
 
@@ -97,8 +97,10 @@ def main():
     Hx = H[:,0,:,0]
 
     fig, ax = plt.subplots()
-    ax.imshow(Hx, origin='lower')
-    ax.set_title(r"Hesian of negative log likelihood along $x$")
+    im = ax.imshow(np.linalg.inv(Hx), origin='lower', cmap="Reds")
+    fig.colorbar(im, ax=ax)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
     plt.show()
     plt.close
 
@@ -115,6 +117,7 @@ def main():
     xmean = np.mean(samples, axis=1)
     xlo = np.quantile(samples, q=0.05, axis=1)
     xhi = np.quantile(samples, q=0.95, axis=1)
+
 
     fig, ax = plt.subplots()
     ax.fill_between(t, xlo, xhi, lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
