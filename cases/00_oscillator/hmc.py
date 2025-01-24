@@ -111,16 +111,34 @@ def main():
 
     xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
 
-    fig, ax = plt.subplots()
-    ax.fill_between(t, x_lo, x_hi, lw=0, color='r', alpha=0.2)
-    ax.plot(t, x_mean, '-r')
-    ax.plot(t, xexact, '--k')
-    ax.plot(td, xd.detach().numpy(), '+k')
-    ax.set_xlabel(r"$t$")
-    ax.set_ylabel(r"$x$")
-    ax.set_xlim(0, T)
-    plt.show()
+    if 0:
+        fig, ax = plt.subplots()
+        ax.fill_between(t, x_lo, x_hi, lw=0, color='r', alpha=0.2)
+        ax.plot(t, x_mean, '-r')
+        ax.plot(t, xexact, '--k')
+        ax.plot(td, xd.detach().numpy(), '+k')
+        ax.set_xlabel(r"$t$")
+        ax.set_ylabel(r"$x$")
+        ax.set_xlim(0, T)
+        plt.show()
 
+    # estimate covariance
+
+    samples = samples.T.reshape((-1, num_samples)).T
+
+    mean = np.mean(samples, axis=0)
+    X = samples - mean[None, :]
+
+    cov = (X.T @ X) / (num_samples - 1)
+
+    fig, ax = plt.subplots()
+    #im = ax.imshow(np.linalg.inv(cov), origin='lower', cmap="Reds")
+    im = ax.imshow(cov, origin='lower', cmap="Reds")
+    fig.colorbar(im, ax=ax)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    plt.show()
+    plt.close
 
 
 
