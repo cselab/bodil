@@ -86,7 +86,7 @@ def main():
         losses.append(l)
 
 
-    hmc = HMC([y], dt=0.01, L=10, M=1)
+    hmc = HMC([y], dt=0.0116, L=10, M=1)
 
     def closure():
         hmc.zero_grad()
@@ -101,7 +101,7 @@ def main():
         samples.append(y_[0].detach().numpy())
         num_accepted += accepted
 
-    print(f"accptence rate: {num_accepted/num_samples}")
+    print(f"accptance rate: {num_accepted/num_samples}")
     samples = np.array(samples)
 
     x_samples = samples[:, :, 0]
