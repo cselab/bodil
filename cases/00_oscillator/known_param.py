@@ -86,7 +86,7 @@ def main():
         losses.append(l)
 
 
-    hmc = HMC([y], dt=0.01, L=10, M=10)
+    hmc = HMC([y], dt=0.01, L=10, M=1)
 
     def closure():
         hmc.zero_grad()
@@ -108,7 +108,6 @@ def main():
     x_mean = np.mean(x_samples, axis=0)
     x_lo = np.quantile(x_samples, q=0.1, axis=0)
     x_hi = np.quantile(x_samples, q=0.9, axis=0)
-    print(samples[:50,0,0])
 
     xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
 
