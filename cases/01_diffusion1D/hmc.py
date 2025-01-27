@@ -16,12 +16,12 @@ def exact_solution(nx, nt, D, L, T):
     u = np.exp(-lam * t[None,:]) * np.cos(k * x[:,None])
     return x, t, u
 
-def generate_data(nx, nt, D, L, T, rng, sigma):
+def generate_data(num_data, nx, nt, D, L, T, rng, sigma):
     x = np.linspace(0, L, nx, endpoint=False)
     t = np.linspace(0, T, nt+1, endpoint=True)
 
-    xd = x
-    td = np.zeros_like(xd)
+    xd = rng.choice(x, num_data, replace=True)
+    td = rng.choice(t, num_data, replace=True)
 
     k = 2 * np.pi / L
     lam = k**2 * D
@@ -36,8 +36,9 @@ def main():
     num_samples = 10000
     lr = 5e-4
     sigma_data = 0.1
-    sigma_pde = 0.1
+    sigma_pde = 0.5
     rng = np.random.default_rng(seed=seed)
+    num_data = 50
 
     T = 1.0
     D = 0.1
@@ -47,9 +48,7 @@ def main():
     nt = 63
 
     x, t, uexact = exact_solution(nx=nx, nt=nt, D=D, L=L, T=T)
-    xd, td, ud = generate_data(nx=nx, nt=nt, D=D, L=L, T=T, rng=rng, sigma=sigma_data)
-
-    num_data = len(xd)
+    xd, td, ud = generate_data(num_data=num_data, nx=nx, nt=nt, D=D, L=L, T=T, rng=rng, sigma=sigma_data)
 
     dx = x[1] - x[0]
     dt = t[1] - t[0]
@@ -102,7 +101,7 @@ def main():
     u = u_.detach().numpy()
     u = u.reshape((nx, (nt+1)))
 
-    if 0:
+    if 1:
         fig, ax = plt.subplots()
         im = ax.imshow(u.T, origin='lower',
                        cmap="seismic",
@@ -118,7 +117,7 @@ def main():
 
 
     # HMC sampling
-    hmc = HMC([u_], dt=3.5e-4, L=10, M=1)
+    hmc = HMC([u_], dt=1.7e-3, L=10, M=1)
 
     def closure():
         hmc.zero_grad()
@@ -146,12 +145,12 @@ def main():
     ulo = np.quantile(samples, q=0.05, axis=0).reshape(ushape)
     uhi = np.quantile(samples, q=0.95, axis=0).reshape(ushape)
 
-    if 1:
+    if 0:
         fig, ax = plt.subplots()
         ax.fill_between(x, ulo[:,0], uhi[:,0], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
         ax.plot(x, u[:,0], '-r', label='mean')
         ax.plot(x, uexact[:,0], '--k', label='exact')
-        ax.plot(xd, ud, '+k', label='data')
+        #ax.plot(xd, ud, '+k', label='data')
         ax.set_xlabel(r"$x$")
         ax.set_ylabel(r"$u(t=0, x)$")
         ax.set_xlim(0, L)
@@ -159,8 +158,7 @@ def main():
         ax.legend(frameon=False)
         plt.show()
 
-    if 0:
-        tid = 0
+    for tid in [4, 8, 16, 32]:
         fig, ax = plt.subplots()
         ax.fill_between(x, ulo[:,tid], uhi[:,tid], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
         ax.plot(x, umean[:,tid], '-r', label='mean')
@@ -168,7 +166,7 @@ def main():
         ax.set_xlabel(r"$x$")
         ax.set_ylabel(r"$u(t={}, x)$".format(t[tid]))
         ax.set_xlim(0, L)
-        ax.set_ylim(-1.5, 1.5)
+        ax.set_ylim(-1.2, 1.2)
         ax.legend(frameon=False)
         plt.show()
 
