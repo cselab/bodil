@@ -157,10 +157,12 @@ def main():
     data = {
         't': t,
         'xmap': x,
+        'xmean': x,
         'xexact': xexact,
         'x05': xlo,
         'x95': xhi,
         'vmap': v,
+        'vmean': v,
         'vexact': vexact,
         'v05': vlo,
         'v95': vhi
