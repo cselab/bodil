@@ -117,13 +117,14 @@ def main():
     H = H.detach().numpy()
 
     # sample solutions u.
+    u = u.flatten()
     samples = np.zeros((len(u), num_samples))
 
     eigvals, eigvecs = np.linalg.eig(H)
 
     for k in range(num_samples):
         z = rng.normal(0, 1/np.sqrt(eigvals), len(u))
-        samples[:,k] = y + eigvecs @ z
+        samples[:,k] = u + eigvecs @ z
 
     ushape = (nx, nt+1)
     umean = np.mean(samples, axis=1).reshape(ushape)
