@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from torch.optim import Adam
 
@@ -96,22 +97,35 @@ def main():
 
     samples = []
     num_accepted = 0
+    Umap = None
+    ymap = None
     for k in range(num_samples):
-        y_, H_, accepted = hmc.step(closure)
+        y_, H_, U_, accepted = hmc.step(closure)
         samples.append(y_[0].detach().numpy())
         num_accepted += accepted
+        if Umap is None or Umap > U_:
+            ymap = y_[0].detach().numpy()
+            Umap = U_
 
     print(f"accptance rate: {num_accepted/num_samples}")
     samples = np.array(samples)
 
     x_samples = samples[:, :, 0]
+    x_map = ymap[:,0]
     x_mean = np.mean(x_samples, axis=0)
-    x_lo = np.quantile(x_samples, q=0.1, axis=0)
-    x_hi = np.quantile(x_samples, q=0.9, axis=0)
+    x_lo = np.quantile(x_samples, q=0.05, axis=0)
+    x_hi = np.quantile(x_samples, q=0.95, axis=0)
+
+    v_samples = samples[:, :, 0]
+    v_map = ymap[:,1]
+    v_mean = np.mean(v_samples, axis=0)
+    v_lo = np.quantile(v_samples, q=0.05, axis=0)
+    v_hi = np.quantile(v_samples, q=0.95, axis=0)
 
     xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
+    vexact = v0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
 
-    if 0:
+    if 1:
         fig, ax = plt.subplots()
         ax.fill_between(t, x_lo, x_hi, lw=0, color='r', alpha=0.2)
         ax.plot(t, x_mean, '-r')
@@ -123,7 +137,6 @@ def main():
         plt.show()
 
     # estimate covariance
-
     samples = samples.T.reshape((-1, num_samples)).T
 
     mean = np.mean(samples, axis=0)
@@ -138,8 +151,35 @@ def main():
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     plt.show()
-    plt.close
+    plt.close()
 
+    with open('hmc_hessian.npy', 'wb') as f:
+        np.save(f, cov)
+
+    data = {
+        't': t,
+        'xmap': x_map,
+        'xmean': x_mean,
+        'xexact': xexact,
+        'x05': x_lo,
+        'x95': x_hi,
+        'vmap': v_map,
+        'vmean': v_mean,
+        'vexact': vexact,
+        'v05': v_lo,
+        'v95': v_hi
+    }
+
+    df = pd.DataFrame(data)
+    df.to_csv('hmc_pred.csv', index=False)
+
+    data = {
+        't': td,
+        'x': xd.detach().numpy()
+    }
+
+    df = pd.DataFrame(data)
+    df.to_csv('hmc_data.csv', index=False)
 
 
 

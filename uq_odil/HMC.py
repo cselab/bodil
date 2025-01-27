@@ -95,7 +95,8 @@ class HMC(Optimizer):
 
         r_init = self._clone_param()
         U = closure()
-        H0 = U + torch.sum(p**2) / (2 * M)
+        U0 = U.item()
+        H0 = U0 + torch.sum(p**2) / (2 * M)
         gradU = self._gather_flat_grad()
 
         for i in range(self._L):
@@ -117,6 +118,7 @@ class HMC(Optimizer):
         if u <= alpha:
             # accept
             H_ = H.item()
+            U_ = U.item()
             x_ = self._clone_param()
             accepted = 1
         else:
@@ -124,7 +126,8 @@ class HMC(Optimizer):
             with torch.no_grad():
                 self._set_param(r_init)
             H_ = H0.item()
+            U_ = U0
             x_ = self._clone_param()
             accepted = 0
 
-        return x_, H_, accepted
+        return x_, H_, U_, accepted
