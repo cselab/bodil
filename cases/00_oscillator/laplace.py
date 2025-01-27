@@ -100,17 +100,17 @@ def main():
     Hx = H[:nt+1,:nt+1]
 
 
+    cov = np.linalg.inv(H)
     fig, ax = plt.subplots()
-    #im = ax.imshow(np.linalg.inv(H), origin='lower', cmap="Reds")
-    im = ax.imshow(H, origin='lower', cmap="Reds")
+    im = ax.imshow(cov, origin='lower', cmap="Reds")
     fig.colorbar(im, ax=ax)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     plt.show()
     plt.close
 
-    with open('laplace_hessian.npy', 'wb') as f:
-        np.save(f, H)
+    with open('laplace_cov.npy', 'wb') as f:
+        np.save(f, cov)
 
     # sample solutions x.
     num_samples = 5000

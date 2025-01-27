@@ -1,6 +1,6 @@
 laplace_data.csv
-laplace_hessian.npy
+laplace_cov.npy
 laplace_pred.csv
 hmc_data.csv
-hmc_hessian.npy
+hmc_cov.npy
 hmc_pred.csv

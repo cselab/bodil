@@ -116,7 +116,7 @@ def main():
     x_lo = np.quantile(x_samples, q=0.05, axis=0)
     x_hi = np.quantile(x_samples, q=0.95, axis=0)
 
-    v_samples = samples[:, :, 0]
+    v_samples = samples[:, :, 1]
     v_map = ymap[:,1]
     v_mean = np.mean(v_samples, axis=0)
     v_lo = np.quantile(v_samples, q=0.05, axis=0)
@@ -153,7 +153,7 @@ def main():
     plt.show()
     plt.close()
 
-    with open('hmc_hessian.npy', 'wb') as f:
+    with open('hmc_cov.npy', 'wb') as f:
         np.save(f, cov)
 
     data = {
