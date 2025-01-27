@@ -67,7 +67,6 @@ def main():
         u = u_.reshape((nx, nt+1))
         dudt = torch.diff(u, axis=1) / dt
         um = (u[:,:-1] + u[:,1:]) / 2
-        #um = u[:,:-1]
         d2udx2 = (torch.roll(um, shifts=-1, dims=0) - 2 * um + torch.roll(um, shifts=1, dims=0)) / (dx**2)
 
         pde_res = dudt - D * d2udx2
@@ -103,7 +102,7 @@ def main():
         im = ax.imshow(u.T, origin='lower',
                        cmap="seismic",
                        vmin=-1, vmax=1,
-                       aspect=nx/(nt+1))
+                       aspect=2 * nx/(nt+1))
         fig.colorbar(im, ax=ax)
         ax.plot(xd_ids, td_ids, '.k')
         ax.set(xticks=np.linspace(0, nx, 3), xticklabels=np.linspace(0, L, 3),
@@ -143,26 +142,13 @@ def main():
     ulo = np.quantile(samples, q=0.05, axis=0).reshape(ushape)
     uhi = np.quantile(samples, q=0.95, axis=0).reshape(ushape)
 
-    if 0:
-        fig, ax = plt.subplots()
-        ax.fill_between(x, ulo[:,0], uhi[:,0], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
-        ax.plot(x, u[:,0], '-r', label='mean')
-        ax.plot(x, uexact[:,0], '--k', label='exact')
-        #ax.plot(xd, ud, '+k', label='data')
-        ax.set_xlabel(r"$x$")
-        ax.set_ylabel(r"$u(t=0, x)$")
-        ax.set_xlim(0, L)
-        ax.set_ylim(-1.5, 1.5)
-        ax.legend(frameon=False)
-        plt.show()
-
     for tid in [0, 4, 8, 16, 32]:
         fig, ax = plt.subplots()
         ax.fill_between(x, ulo[:,tid], uhi[:,tid], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
         ax.plot(x, umean[:,tid], '-r', label='mean')
         ax.plot(x, uexact[:,tid], '--k', label='exact')
         ax.set_xlabel(r"$x$")
-        ax.set_ylabel(r"$u(t={}, x)$".format(t[tid]))
+        ax.set_ylabel(r"$u(t={:.2f}, x)$".format(t[tid]))
         ax.set_xlim(0, L)
         ax.set_ylim(-1.2, 1.2)
         ax.legend(frameon=False)
