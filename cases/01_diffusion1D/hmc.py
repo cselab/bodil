@@ -6,12 +6,13 @@ import pandas as pd
 import torch
 from torch.optim import LBFGS
 
+from uq_odil.HMC import HMC
 
 def exact_solution(nx, nt, D, L, T):
     x = np.linspace(0, L, nx, endpoint=False)
     t = np.linspace(0, T, nt+1, endpoint=True)
     k = 2 * np.pi / L
-    lam = k * D
+    lam = k**2 * D
     u = np.exp(-lam * t[None,:]) * np.cos(k * x[:,None])
     return x, t, u
 
@@ -23,7 +24,7 @@ def generate_data(nx, nt, D, L, T, rng, sigma):
     td = np.zeros_like(xd)
 
     k = 2 * np.pi / L
-    lam = k * D
+    lam = k**2 * D
     ud = np.exp(-lam * td) * np.cos(k * xd) + rng.normal(0, sigma, len(xd))
 
     return xd, td, ud
@@ -32,7 +33,7 @@ def generate_data(nx, nt, D, L, T, rng, sigma):
 def main():
     seed = 2349873
     num_epochs = 1000
-    num_samples = 1000
+    num_samples = 10000
     lr = 5e-4
     sigma_data = 0.1
     sigma_pde = 0.1
@@ -42,8 +43,8 @@ def main():
     D = 0.1
     L = 1.0
 
-    nx = 64
-    nt = 127
+    nx = 16
+    nt = 63
 
     x, t, uexact = exact_solution(nx=nx, nt=nt, D=D, L=L, T=T)
     xd, td, ud = generate_data(nx=nx, nt=nt, D=D, L=L, T=T, rng=rng, sigma=sigma_data)
@@ -98,7 +99,6 @@ def main():
         losses.append(l)
 
 
-
     u = u_.detach().numpy()
     u = u.reshape((nx, (nt+1)))
 
@@ -116,35 +116,61 @@ def main():
         plt.show()
         plt.close()
 
-    # Laplace approximation
-    H = torch.autograd.functional.hessian(neg_log_posterior, u_, create_graph=True)
-    H = H.detach().numpy()
 
-    # sample solutions u.
-    samples = np.zeros((len(u), num_samples))
+    # HMC sampling
+    hmc = HMC([u_], dt=3.5e-4, L=10, M=1)
 
-    eigvals, eigvecs = np.linalg.eig(H)
+    def closure():
+        hmc.zero_grad()
+        U = neg_log_posterior(u_)
+        U.backward()
+        return U
 
+    samples = []
+    num_accepted = 0
+    Umap = None
+    umap = None
     for k in range(num_samples):
-        z = rng.normal(0, 1/np.sqrt(eigvals), len(u))
-        samples[:,k] = y + eigvecs @ z
+        y_, H_, U_, accepted = hmc.step(closure)
+        samples.append(y_[0].detach().numpy())
+        num_accepted += accepted
+        if Umap is None or Umap > U_:
+            umap = y_[0].detach().numpy()
+            Umap = U_
+
+    print(f"accptance rate: {num_accepted/num_samples}")
+    samples = np.array(samples)
 
     ushape = (nx, nt+1)
-    umean = np.mean(samples[:len(x)], axis=1).reshape(ushape)
-    ulo = np.quantile(samples[:len(x)], q=0.05, axis=1).reshape(ushape)
-    uhi = np.quantile(samples[:len(x)], q=0.95, axis=1).reshape(ushape)
+    umean = np.mean(samples, axis=0).reshape(ushape)
+    ulo = np.quantile(samples, q=0.05, axis=0).reshape(ushape)
+    uhi = np.quantile(samples, q=0.95, axis=0).reshape(ushape)
 
-    fig, ax = plt.subplots()
-    ax.fill_between(x, ulo[:,0], xhi[:,0], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
-    ax.plot(x, u[:,0], '-r', label='MAP')
-    ax.plot(x, uexact[:,0], '--k', label='exact')
-    ax.plot(xd, ud, '+k', label='data')
-    ax.set_xlabel(r"$x$")
-    ax.set_ylabel(r"$u(t=0, x)$")
-    ax.set_xlim(0, L)
-    ax.set_ylim(-1.5, 1.5)
-    ax.legend(frameon=False)
+    if 1:
+        fig, ax = plt.subplots()
+        ax.fill_between(x, ulo[:,0], uhi[:,0], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
+        ax.plot(x, u[:,0], '-r', label='mean')
+        ax.plot(x, uexact[:,0], '--k', label='exact')
+        ax.plot(xd, ud, '+k', label='data')
+        ax.set_xlabel(r"$x$")
+        ax.set_ylabel(r"$u(t=0, x)$")
+        ax.set_xlim(0, L)
+        ax.set_ylim(-1.5, 1.5)
+        ax.legend(frameon=False)
+        plt.show()
 
+    if 0:
+        tid = 0
+        fig, ax = plt.subplots()
+        ax.fill_between(x, ulo[:,tid], uhi[:,tid], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
+        ax.plot(x, umean[:,tid], '-r', label='mean')
+        ax.plot(x, uexact[:,tid], '--k', label='exact')
+        ax.set_xlabel(r"$x$")
+        ax.set_ylabel(r"$u(t={}, x)$".format(t[tid]))
+        ax.set_xlim(0, L)
+        ax.set_ylim(-1.5, 1.5)
+        ax.legend(frameon=False)
+        plt.show()
 
 
 if __name__ == '__main__':
