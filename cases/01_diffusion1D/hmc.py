@@ -32,13 +32,13 @@ def generate_data(num_data, nx, nt, D, L, T, rng, sigma):
 
 def main():
     seed = 2349873
-    num_epochs = 1000
-    num_samples = 10000
+    num_epochs = 500
+    num_samples = 5000
     lr = 5e-4
     sigma_data = 0.1
-    sigma_pde = 0.5
+    sigma_pde = 0.1
     rng = np.random.default_rng(seed=seed)
-    num_data = 50
+    num_data = 200
 
     T = 1.0
     D = 0.1
@@ -72,12 +72,9 @@ def main():
 
         pde_res = dudt - D * d2udx2
         data_res = u[xd_ids_, td_ids_] - ud_
-        #reg_res = 0.05 * dudt
 
         log_like  = torch.sum(-pde_res**2 / (2 * sigma_pde**2)) - (nx * nt)/2 * np.log(2 * np.pi * sigma_pde**2)
-        #log_like += torch.sum(-reg_res**2 / (2 * sigma_pde**2)) - (nx * nt)/2 * np.log(2 * np.pi * sigma_pde**2)
         log_like += torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
-
 
         return -log_like
 
@@ -105,7 +102,8 @@ def main():
         fig, ax = plt.subplots()
         im = ax.imshow(u.T, origin='lower',
                        cmap="seismic",
-                       vmin=-1, vmax=1)
+                       vmin=-1, vmax=1,
+                       aspect=nx/(nt+1))
         fig.colorbar(im, ax=ax)
         ax.plot(xd_ids, td_ids, '.k')
         ax.set(xticks=np.linspace(0, nx, 3), xticklabels=np.linspace(0, L, 3),
@@ -117,7 +115,7 @@ def main():
 
 
     # HMC sampling
-    hmc = HMC([u_], dt=1.7e-3, L=10, M=1)
+    hmc = HMC([u_], dt=3.5e-4, L=10, M=1)
 
     def closure():
         hmc.zero_grad()
@@ -158,7 +156,7 @@ def main():
         ax.legend(frameon=False)
         plt.show()
 
-    for tid in [4, 8, 16, 32]:
+    for tid in [0, 4, 8, 16, 32]:
         fig, ax = plt.subplots()
         ax.fill_between(x, ulo[:,tid], uhi[:,tid], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
         ax.plot(x, umean[:,tid], '-r', label='mean')
