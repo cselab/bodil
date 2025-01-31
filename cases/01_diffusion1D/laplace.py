@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -30,6 +31,12 @@ def generate_data(num_data, nx, nt, D, L, T, rng, sigma):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--no-plot', action='store_true', default=False, help='no plot')
+    args = parser.parse_args()
+
+    show_plots = not args.no_plot
+
     seed = 2349873
     num_epochs = 500
     num_samples = 5000
@@ -97,7 +104,7 @@ def main():
     u = u_.detach().numpy()
     u = u.reshape((nx, (nt+1)))
 
-    if 1:
+    if show_plots:
         fig, ax = plt.subplots()
         im = ax.imshow(u.T, origin='lower',
                        cmap="seismic",
@@ -111,6 +118,15 @@ def main():
         ax.set_ylabel(r'$t/T$')
         plt.show()
         plt.close()
+
+    with open("laplace_upred.npy", "wb") as f:
+        np.save(f, u.T)
+    data = {
+        'xid': xd_ids,
+        'tid': td_ids,
+        'u': ud
+    }
+    pd.DataFrame(data).to_csv("laplace_data.csv")
 
     # Laplace approximation
     H = torch.autograd.functional.hessian(neg_log_posterior, u_, create_graph=True)
@@ -131,17 +147,32 @@ def main():
     ulo = np.quantile(samples, q=0.05, axis=1).reshape(ushape)
     uhi = np.quantile(samples, q=0.95, axis=1).reshape(ushape)
 
-    for tid in [0, 4, 8, 16, 32]:
-        fig, ax = plt.subplots()
-        ax.fill_between(x, ulo[:,tid], uhi[:,tid], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
-        ax.plot(x, umean[:,tid], '-r', label='mean')
-        ax.plot(x, uexact[:,tid], '--k', label='exact')
-        ax.set_xlabel(r"$x$")
-        ax.set_ylabel(r"$u(t={:.2f}, x)$".format(t[tid]))
-        ax.set_xlim(0, L)
-        ax.set_ylim(-1.2, 1.2)
-        ax.legend(frameon=False)
-        plt.show()
+    for tid in [0, 8, 16, 32]:
+
+        if show_plots:
+            fig, ax = plt.subplots()
+            ax.fill_between(x, ulo[:,tid], uhi[:,tid], lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
+            ax.plot(x, umean[:,tid], '-r', label='mean')
+            ax.plot(x, uexact[:,tid], '--k', label='exact')
+            ax.set_xlabel(r"$x$")
+            ax.set_ylabel(r"$u(t={:.2f}, x)$".format(t[tid]))
+            ax.set_xlim(0, L)
+            ax.set_ylim(-1.2, 1.2)
+            ax.legend(frameon=False)
+            plt.show()
+            plt.close()
+
+        data = {
+            'x': x,
+            'u05': ulo[:,tid],
+            'u95': uhi[:,tid],
+            'umean': umean[:,tid],
+            'uexact': uexact[:,tid]
+        }
+
+        fname = f"laplace_prediction_t_{t[tid]:.2f}.csv"
+        df = pd.DataFrame(data)
+        df.to_csv(fname, index=False)
 
 
 
