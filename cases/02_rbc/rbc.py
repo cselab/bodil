@@ -236,6 +236,8 @@ def main():
     mesh  = dpdprops.load_equilibrium_mesh(subdivisions=4)
     mesh0 = dpdprops.load_stress_free_mesh(subdivisions=4)
 
+    RA = dpdprops.equivalent_sphere_radius(area=mesh.area)
+
     dihedrals = extract_dihedrals(mesh.faces)
     faces = torch.from_numpy(mesh.faces)
     vertices = torch.from_numpy(mesh.vertices).float()
@@ -244,7 +246,7 @@ def main():
 
     ureg = pint.UnitRegistry()
     params = dpdprops.JuelicherLimRBCDefaultParams(ureg)
-    lscale = 1 * ureg.micrometer
+    lscale = dpdprops.equivalent_sphere_radius(area=params.A0) / RA
     tscale = 1e-3 * ureg.second
     mscale = 1e-10 * ureg.g
     p = params.get_params(length_scale=lscale,
@@ -259,8 +261,8 @@ def main():
         A = compute_area(faces, vertices)
         V = compute_volume(faces, vertices)
 
-        E_A = p.ka * ((A - p.area) / p.area)**2
-        E_V = p.kv * ((V - p.volume) / p.volume)**2
+        E_A = p.ka * (A - p.area)**2 / p.area
+        E_V = p.kv * (V - p.volume)**2 / p.volume
         E_b = compute_bending_energy(faces,
                                      dihedrals,
                                      vertices,
@@ -278,7 +280,7 @@ def main():
         return E_A + E_V + E_b + E_s
 
 
-    optim = Adam([vertices], lr=5e-3)
+    optim = Adam([vertices], lr=1e-3)
 
     dump_id = 0
     for epoch in range(5000):
