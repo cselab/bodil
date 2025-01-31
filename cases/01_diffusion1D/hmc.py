@@ -33,7 +33,7 @@ def generate_data(num_data, nx, nt, D, L, T, rng, sigma):
 def main():
     seed = 2349873
     num_epochs = 500
-    num_samples = 5000
+    num_samples = 500
     lr = 5e-4
     sigma_data = 0.1
     sigma_pde = 0.1
@@ -97,7 +97,7 @@ def main():
     u = u_.detach().numpy()
     u = u.reshape((nx, (nt+1)))
 
-    if 1:
+    if 0:
         fig, ax = plt.subplots()
         im = ax.imshow(u.T, origin='lower',
                        cmap="seismic",
@@ -114,7 +114,15 @@ def main():
 
 
     # HMC sampling
-    hmc = HMC([u_], dt=3.5e-4, L=10, M=1)
+
+    H = torch.autograd.functional.hessian(neg_log_posterior, u_, create_graph=True)
+    H = H.detach().numpy()
+
+    cov = np.linalg.inv(H)
+    M = np.sqrt(np.diag(cov))
+    M = torch.from_numpy(M)
+
+    hmc = HMC([u_], dt=1.37e-4, L=10000, M=M)
 
     def closure():
         hmc.zero_grad()
