@@ -99,8 +99,6 @@ def compute_vertex_mean_curvatures(faces,
     n0 = torch.linalg.cross(ab, c-a, dim=1)
     n1 = torch.linalg.cross(ab, a-d, dim=1)
 
-    #arg = torch.sum(n0 * n1, dim=1) / (torch.linalg.norm(n0, dim=1) * torch.linalg.norm(n1, dim=1))
-    #theta = torch.arccos(torch.maximum(-torch.ones_like(arg), torch.minimum(torch.ones_like(arg), arg)))
     n0n1 = torch.linalg.cross(n0, n1, dim=1)
     arg = torch.linalg.norm(n0n1, dim=1) / (torch.linalg.norm(n0, dim=1) * torch.linalg.norm(n1, dim=1))
     theta = torch.asin(arg)
