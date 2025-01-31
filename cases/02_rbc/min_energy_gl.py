@@ -85,7 +85,7 @@ def main():
             l = loss.item()
             print(f"epoch {epoch:06d} loss {l:.4e}")
 
-            mesh.vertices = phi @ c.detach().numpy()
+            mesh.vertices = (phi @ c.detach()).numpy()
             mesh.export(f"crbc-{dump_id:06d}.ply")
             dump_id += 1
 
