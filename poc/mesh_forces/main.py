@@ -43,29 +43,29 @@ def main():
     idx_mf = torch.from_numpy(idx[:nf])
     idx_pf = torch.from_numpy(idx[-nf:])
 
-
     def forces_residuals(vertices):
         areas = _compute_triangle_areas(faces, vertices)
         A = torch.sum(areas)
         V = compute_area(faces, vertices)
         energy = 10 * ((A - A0) / A0)**2 + 10 * ((V - V0) / V0)**2
         energy += torch.sum(((areas - a0) / a0)**2)
-        forces = torch.autograd.grad(-energy, inputs=vertices, create_graph=True)[0]
+        forces = torch.autograd.grad(-energy, inputs=vertices,
+                                     create_graph=True,
+                                     materialize_grads=True)[0]
         forces[idx_mf, 0] -= fmagn
         forces[idx_pf, 0] += fmagn
         return forces
 
+    optim = Adam([vertices], lr=0.001)
 
-    optim = Adam([vertices], lr=0.005)
-
-    for epoch in range(5000):
+    for epoch in range(50000):
         optim.zero_grad()
         res = forces_residuals(vertices)
         loss = torch.mean(res**2)
         loss.backward()
         optim.step()
 
-        if epoch % 100 == 0:
+        if epoch % 1000 == 0:
             l = loss.item()
             print(f"epoch {epoch:06d} loss {l:.4e}")
 
