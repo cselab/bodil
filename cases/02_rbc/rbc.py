@@ -276,7 +276,6 @@ def main():
                                    a4=p.shear_params.a4,
                                    b1=p.shear_params.b1,
                                    b2=p.shear_params.b2)
-        # print(E_A.item(), E_V.item(), E_b.item(), E_s.item())
         return E_A + E_V + E_b + E_s
 
 
