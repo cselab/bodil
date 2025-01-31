@@ -29,8 +29,16 @@ class HMC(Optimizer):
         self._device = device
         self._generator = torch.Generator(device=device).manual_seed(seed)
         self._dt = dt
-        self._M = M
         self._L = L
+
+        n = self._numel()
+        if isinstance(M, float):
+            self._M = torch.full((n,), M, device=self._device)
+        else:
+            assert len(M) == n
+            self._M = M
+
+
 
     def _numel(self):
         if self._numel_cache is None:
@@ -77,7 +85,7 @@ class HMC(Optimizer):
         n = self._numel()
         M = self._M
         return torch.normal(mean=torch.zeros(n, device=dev),
-                            std=torch.full((n,), M, device=dev),
+                            std=M,
                             generator=self._generator)
 
 
@@ -96,7 +104,7 @@ class HMC(Optimizer):
         r_init = self._clone_param()
         U = closure()
         U0 = U.item()
-        H0 = U0 + torch.sum(p**2) / (2 * M)
+        H0 = U0 + torch.sum(p**2 / (2 * M))
         gradU = self._gather_flat_grad()
 
         for i in range(self._L):
@@ -111,7 +119,7 @@ class HMC(Optimizer):
                 gradU = self._gather_flat_grad()
                 p -= dt/2 * gradU
 
-        H = U + torch.sum(p**2) / (2 * M)
+        H = U + torch.sum(p**2 / ( 2 * M))
         u = torch.rand(size=(1,), generator=self._generator)[0].item()
         alpha = min([torch.exp(H - H0).item(), 1.0])
 
