@@ -21,7 +21,7 @@ def main():
 
     seed = 2349873
     sigma_pde = 0.01
-    sigma_data = [0.05, 0.05, 0.07]
+    sigma_data = np.array([0.05, 0.05, 0.07])
     lr = 1e-4
     num_epochs = 5000
     stats_every = 500
@@ -129,21 +129,18 @@ def main():
     H = H.detach().numpy()
 
     uMAP = u_.detach().numpy()
-    samples = np.zeros((len(uMAP), num_samples))
+    cov = np.linalg.inv(H)
 
-    eigvals, eigvecs = np.linalg.eig(H)
+    var = np.diag(cov)
 
-    for k in range(num_samples):
-        z = rng.normal(0, 1/np.sqrt(eigvals), len(uMAP))
-        samples[:,k] = uMAP + eigvecs @ z
+    q_5_95_std = 2.5758
 
-    umean = np.mean(samples, axis=1)
-    ulo = np.quantile(samples, q=0.05, axis=1)
-    uhi = np.quantile(samples, q=0.95, axis=1)
+    beads_var = var[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L**2
+    obs_std = np.sqrt(beads_var + sigma_data[None,None,:]**2)
 
     beads_MAP = uMAP[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L
-    beads_lo = ulo[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L
-    beads_hi = uhi[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L
+    beads_lo = beads_MAP - q_5_95_std * obs_std
+    beads_hi = beads_MAP + q_5_95_std * obs_std
 
     fig, axes = plt.subplots(ncols=nbeads, figsize=(nbeads * 4.8,  3.6), sharey=True)
 
@@ -172,16 +169,18 @@ def main():
 
 
     sed_MAP = uMAP[nbeads*nt*3:nbeads*nt*3+nbeads] * L
-    sed_lo = ulo[nbeads*nt*3:nbeads*nt*3+nbeads] * L
-    sed_hi = uhi[nbeads*nt*3:nbeads*nt*3+nbeads] * L
+    sed_std = np.sqrt(var[nbeads*nt*3:nbeads*nt*3+nbeads]) * L
 
-    fig, axes = plt.subplots(ncols=nbeads, figsize=(nbeads * 4.8,  3.6))
+    fig, ax = plt.subplots()
     for j in range(nbeads):
-        ax = axes[j]
-        vseds = samples[nbeads*nt*3+j,:] * L
-        std = np.std(vseds)
-        ax.hist(vseds, bins=25, range=(sed_MAP[j] - 3*std, sed_MAP[j] + 3*std))
-        ax.set_xlabel(r'$v_\mathrm{sed}$')
+        mu = sed_MAP[j]
+        sigma = sed_std[j]
+        vz = np.linspace(mu - 3 * sigma, mu + 3 * sigma, 1000, endpoint=True)
+        pz = np.exp(-(vz-mu)**2/(2*sigma**2)) / np.sqrt(2 * np.pi * sigma**2)
+        ax.plot(vz, pz, label=f'bead {j}')
+    ax.set_xlabel(r'$v_\mathrm{sed}$ (cm/s)')
+    ax.set_ylabel(r'$p(v_\mathrm{sed})$')
+    ax.legend()
 
     plt.tight_layout()
     plt.show()
