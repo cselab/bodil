@@ -17,9 +17,11 @@ def main():
     args = parser.parse_args()
 
     seed = 2349873
-    sigma_pde = 0.005
+    sigma_pde = 0.05
+    sigma_data = [0.05, 0.05, 0.07]
     lr = 1e-4
-    num_epochs = 15000
+    num_epochs = 5000
+    stats_every = 500
     num_samples = 5000
     rng = np.random.default_rng(seed=seed)
 
@@ -54,22 +56,18 @@ def main():
     data_beads_ = torch.from_numpy(data_beads).float()
 
 
-    # flattened solution: beads trajectories; z-sed velocities; sigmaxyz
-    u_ = torch.zeros((nbeads * nt * 3) + nbeads + 3)
+    # flattened solution: beads trajectories; z-sed velocities
+    u_ = torch.zeros((nbeads * nt * 3) + nbeads)
 
     # initial guess
     u_[:nbeads*nt*3] = data_beads_.flatten()
     u_[nbeads*nt*3:nbeads*nt*3+nbeads] = -0.05 # sedz
-    u_[nbeads*nt*3+nbeads+0] = 0.01 # sigma x
-    u_[nbeads*nt*3+nbeads+1] = 0.01 # sigma y
-    u_[nbeads*nt*3+nbeads+2] = 0.05 # sigma z
 
     u_.requires_grad = True
 
     def neg_log_posterior(u_):
         beads_ = u_[:nbeads*nt*3].reshape((nbeads, nt, 3))
         sedz = u_[nbeads*nt*3:nbeads*nt*3+nbeads]
-        sigma_data = u_[nbeads*nt*3+nbeads:]
 
         nlp = 0
 
@@ -99,9 +97,9 @@ def main():
             dresy = y - data_beads_[j,:,1]
             dresz = z - data_beads_[j,:,2]
 
-            nlp += torch.sum(dresx**2 / (2 * sigma_data[0]**2)) + nt/2 * torch.log(2 * np.pi * sigma_data[0]**2)
-            nlp += torch.sum(dresy**2 / (2 * sigma_data[1]**2)) + nt/2 * torch.log(2 * np.pi * sigma_data[1]**2)
-            nlp += torch.sum(dresz**2 / (2 * sigma_data[2]**2)) + nt/2 * torch.log(2 * np.pi * sigma_data[2]**2)
+            nlp += torch.sum(dresx**2 / (2 * sigma_data[0]**2)) + nt/2 * np.log(2 * np.pi * sigma_data[0]**2)
+            nlp += torch.sum(dresy**2 / (2 * sigma_data[1]**2)) + nt/2 * np.log(2 * np.pi * sigma_data[1]**2)
+            nlp += torch.sum(dresz**2 / (2 * sigma_data[2]**2)) + nt/2 * np.log(2 * np.pi * sigma_data[2]**2)
 
         return nlp
 
@@ -113,11 +111,9 @@ def main():
         loss = neg_log_posterior(u_)
         loss.backward()
         optim.step()
-        if epoch % 100 == 0:
+        if epoch % stats_every == 0:
             sedz = u_[nbeads*nt*3:nbeads*nt*3+nbeads].detach().numpy()
-            sigs = u_[nbeads*nt*3+nbeads:].detach().numpy()
-
-            print(f"epoch {epoch:06d}: loss {loss.item():.4e}, sigma={sigs}, sedz={sedz}")
+            print(f"epoch {epoch:06d}: loss {loss.item():.4e}, sedz={sedz}")
 
 
     # Laplace approximation
@@ -129,10 +125,9 @@ def main():
     samples = np.zeros((len(uMAP), num_samples))
 
     eigvals, eigvecs = np.linalg.eig(H)
-    print(np.sort(eigvals)[:50])
 
     for k in range(num_samples):
-        z = rng.normal(0, 1/np.sqrt(np.maximum(eigvals, 1e-8)), len(uMAP))
+        z = rng.normal(0, 1/np.sqrt(eigvals), len(uMAP))
         samples[:,k] = uMAP + eigvecs @ z
 
     umean = np.mean(samples, axis=1)
@@ -157,6 +152,23 @@ def main():
         ax.set_xlabel(r'$t$')
         ax.set_ylim(0, 1)
         ax.set_ylabel('position')
+
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
+
+    sed_MAP = uMAP[nbeads*nt*3:nbeads*nt*3+nbeads]
+    sed_lo = ulo[nbeads*nt*3:nbeads*nt*3+nbeads]
+    sed_hi = uhi[nbeads*nt*3:nbeads*nt*3+nbeads]
+
+    fig, axes = plt.subplots(ncols=nbeads, figsize=(nbeads * 4.8,  3.6))
+    for j in range(nbeads):
+        ax = axes[j]
+        vseds = samples[nbeads*nt*3+j,:]
+        std = np.std(vseds)
+        ax.hist(vseds, bins=25, range=(sed_MAP[j] - 3*std, sed_MAP[j] + 3*std))
+        ax.set_xlabel(r'$v_\mathrm{sed}$')
 
     plt.tight_layout()
     plt.show()
