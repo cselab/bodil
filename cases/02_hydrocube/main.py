@@ -16,8 +16,11 @@ def main():
     parser.add_argument('--vfield-path', type=str, default='vfield', help="path Stokes solutions, in npy format.")
     args = parser.parse_args()
 
+    L = 5 # cm
+    omega_max = 0.45 # rad/s
+
     seed = 2349873
-    sigma_pde = 0.05
+    sigma_pde = 0.01
     sigma_data = [0.05, 0.05, 0.07]
     lr = 1e-4
     num_epochs = 5000
@@ -29,7 +32,7 @@ def main():
 
     df = pd.read_csv(csv_path)
 
-    t = df['t'].to_numpy()
+    t = df['t'].to_numpy() # s
     nbeads = len([name for name in df.columns if 'bead' in name]) // 3
     nmotors = len([name for name in df.columns if 'omega' in name])
     nt = len(t)
@@ -44,6 +47,7 @@ def main():
     for k in range(nmotors):
         omegas[k,:] = df[f"omega{k}"].to_numpy()
 
+    omegas *= omega_max
 
     vfield_path = args.vfield_path
 
@@ -84,9 +88,13 @@ def main():
             dydt = (y[1:] - y[:-1]) / dt
             dzdt = (z[1:] - z[:-1]) / dt
 
+            sedvz = torch.zeros(nt-1)
+            idx = torch.argwhere(z[:-1] > 0.09)
+            sedvz[idx] = sedz[j]
+
             resx = dxdt - vx[:-1]
             resy = dydt - vy[:-1]
-            resz = dzdt - vz[:-1] - sedz[j]
+            resz = dzdt - vz[:-1] - sedvz
 
             nlp += torch.sum(resx**2 / (2 * sigma_pde**2)) + (nt-1)/2 * np.log(2 * np.pi * sigma_pde**2)
             nlp += torch.sum(resy**2 / (2 * sigma_pde**2)) + (nt-1)/2 * np.log(2 * np.pi * sigma_pde**2)
@@ -121,7 +129,6 @@ def main():
     H = H.detach().numpy()
 
     uMAP = u_.detach().numpy()
-
     samples = np.zeros((len(uMAP), num_samples))
 
     eigvals, eigvecs = np.linalg.eig(H)
@@ -134,11 +141,11 @@ def main():
     ulo = np.quantile(samples, q=0.05, axis=1)
     uhi = np.quantile(samples, q=0.95, axis=1)
 
-    beads_MAP = uMAP[:nbeads*nt*3].reshape((nbeads, nt, 3))
-    beads_lo = ulo[:nbeads*nt*3].reshape((nbeads, nt, 3))
-    beads_hi = uhi[:nbeads*nt*3].reshape((nbeads, nt, 3))
+    beads_MAP = uMAP[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L
+    beads_lo = ulo[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L
+    beads_hi = uhi[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L
 
-    fig, axes = plt.subplots(ncols=nbeads, figsize=(nbeads * 4.8,  3.6))
+    fig, axes = plt.subplots(ncols=nbeads, figsize=(nbeads * 4.8,  3.6), sharey=True)
 
     for j in range(nbeads):
         ax = axes[j]
@@ -146,26 +153,32 @@ def main():
             ax.fill_between(t, beads_lo[j,:,dim], beads_hi[j,:,dim],
                             lw=0, alpha=0.2, color=f'C{dim}',
                             label='5-95% quantiles of posterior')
-            ax.plot(t, beads_MAP[j,:,dim], color=f'C{dim}', ls='-')
-            ax.plot(t, data_beads[j,:,dim], color=f'C{dim}', ls='none', marker='.')
+            ax.plot(t, beads_MAP[j,:,dim],
+                    color=f'C{dim}', ls='-',
+                    label='MAP')
+            ax.plot(t, data_beads[j,:,dim] * L,
+                    color=f'C{dim}', ls='--',
+                    label='data')
 
-        ax.set_xlabel(r'$t$')
-        ax.set_ylim(0, 1)
-        ax.set_ylabel('position')
+        ax.set_xlabel(r'$t$ (s)')
+        ax.set_ylim(0, L)
+        if j == 0:
+            #ax.legend()
+            ax.set_ylabel('coordinates (cm)')
 
     plt.tight_layout()
     plt.show()
     plt.close()
 
 
-    sed_MAP = uMAP[nbeads*nt*3:nbeads*nt*3+nbeads]
-    sed_lo = ulo[nbeads*nt*3:nbeads*nt*3+nbeads]
-    sed_hi = uhi[nbeads*nt*3:nbeads*nt*3+nbeads]
+    sed_MAP = uMAP[nbeads*nt*3:nbeads*nt*3+nbeads] * L
+    sed_lo = ulo[nbeads*nt*3:nbeads*nt*3+nbeads] * L
+    sed_hi = uhi[nbeads*nt*3:nbeads*nt*3+nbeads] * L
 
     fig, axes = plt.subplots(ncols=nbeads, figsize=(nbeads * 4.8,  3.6))
     for j in range(nbeads):
         ax = axes[j]
-        vseds = samples[nbeads*nt*3+j,:]
+        vseds = samples[nbeads*nt*3+j,:] * L
         std = np.std(vseds)
         ax.hist(vseds, bins=25, range=(sed_MAP[j] - 3*std, sed_MAP[j] + 3*std))
         ax.set_xlabel(r'$v_\mathrm{sed}$')
