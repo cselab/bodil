@@ -171,13 +171,18 @@ def main():
     sed_MAP = uMAP[nbeads*nt*3:nbeads*nt*3+nbeads] * L
     sed_std = np.sqrt(var[nbeads*nt*3:nbeads*nt*3+nbeads]) * L
 
+    lo = np.min(sed_MAP - 3 * sed_std)
+    hi = np.max(sed_MAP + 3 * sed_std)
+
     fig, ax = plt.subplots()
     for j in range(nbeads):
         mu = sed_MAP[j]
         sigma = sed_std[j]
-        vz = np.linspace(mu - 3 * sigma, mu + 3 * sigma, 1000, endpoint=True)
+        vz = np.linspace(lo, hi, 1000, endpoint=True)
         pz = np.exp(-(vz-mu)**2/(2*sigma**2)) / np.sqrt(2 * np.pi * sigma**2)
         ax.plot(vz, pz, label=f'bead {j}')
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(0, None)
     ax.set_xlabel(r'$v_\mathrm{sed}$ (cm/s)')
     ax.set_ylabel(r'$p(v_\mathrm{sed})$')
     ax.legend()
