@@ -136,7 +136,8 @@ def main():
     q_5_95_std = 2.5758
 
     beads_var = var[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L**2
-    obs_std = np.sqrt(beads_var + sigma_data[None,None,:]**2)
+    obs_std = np.sqrt(beads_var)
+    #obs_std = np.sqrt(beads_var + L**2*sigma_data[None,None,:]**2)
 
     beads_MAP = uMAP[:nbeads*nt*3].reshape((nbeads, nt, 3)) * L
     beads_lo = beads_MAP - q_5_95_std * obs_std
