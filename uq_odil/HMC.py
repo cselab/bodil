@@ -32,8 +32,8 @@ class HMC(Optimizer):
         self._L = L
 
         n = self._numel()
-        if isinstance(M, float):
-            self._M = torch.full((n,), M, device=self._device)
+        if isinstance(M, (float, int)):
+            self._M = torch.full((n,), float(M), device=self._device)
         else:
             assert len(M) == n
             self._M = M
