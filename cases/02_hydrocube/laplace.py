@@ -142,6 +142,22 @@ def main():
     beads_lo = beads_MAP - q_5_95_std * obs_std
     beads_hi = beads_MAP + q_5_95_std * obs_std
 
+    with open('laplace_cov.npy', 'wb') as f:
+        np.save(f, cov)
+
+    data = {
+        't': t
+    }
+
+    for j in range(nbeads):
+        for dim, code in enumerate(['x', 'y', 'z']):
+            data[f"bead{j}{code}_MAP"] = beads_MAP[j,:,dim]
+            data[f"bead{j}{code}_q05"] = beads_lo[j,:,dim]
+            data[f"bead{j}{code}_q95"] = beads_hi[j,:,dim]
+            data[f"bead{j}{code}_data"] = data_beads[j,:,dim] * L
+
+    pd.DataFrame(data).to_csv("laplace_beads.csv", index=False)
+
     fig, axes = plt.subplots(ncols=nbeads, figsize=(nbeads * 4.8,  3.6), sharey=True)
 
     for j in range(nbeads):
@@ -171,6 +187,12 @@ def main():
     sed_MAP = uMAP[nbeads*nt*3:nbeads*nt*3+nbeads] * L
     sed_std = np.sqrt(var[nbeads*nt*3:nbeads*nt*3+nbeads]) * L
 
+    data = {
+        'vz_MAP': sed_MAP,
+        'vz_std': sed_std
+    }
+    pd.DataFrame(data).to_csv("laplace_vz.csv", index=False)
+
     lo = np.min(sed_MAP - 3 * sed_std)
     hi = np.max(sed_MAP + 3 * sed_std)
 
@@ -189,6 +211,7 @@ def main():
 
     plt.tight_layout()
     plt.show()
+    plt.close()
 
 
 if __name__ == '__main__':
