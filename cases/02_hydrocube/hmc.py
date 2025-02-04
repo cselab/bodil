@@ -126,7 +126,7 @@ def main():
             print(f"epoch {epoch:06d}: loss {loss.item():.4e}, sedz={sedz}")
 
 
-    hmc = HMC([u_], dt=0.0003, L=10, M=0.1)
+    hmc = HMC([u_], dt=0.00027, L=10, M=0.1)
 
     def closure():
         hmc.zero_grad()
