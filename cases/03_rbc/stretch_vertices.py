@@ -13,8 +13,6 @@ from rbc import (extract_dihedrals,
                  compute_shear_energy)
 
 def main():
-    kappa = 1e4
-
     mesh  = dpdprops.load_equilibrium_mesh(subdivisions=4)
     mesh0 = dpdprops.load_stress_free_mesh(subdivisions=4)
 
@@ -40,7 +38,7 @@ def main():
     p.kv /= 1e3
 
     # force pulling on both sides of the mesh with magnitude fmagn and on nf vertices along x.
-    nf = 10
+    nf = int(0.05 * len(vertices))
     fmagn_ = 100 * ureg.piconewton
     fscale = mscale * lscale / tscale**2
     fmagn = float(fmagn_ / fscale)
@@ -51,7 +49,7 @@ def main():
     idx_pf = torch.from_numpy(idx[-nf:])
 
 
-    def compute_energy():
+    def compute_internal_energy():
         A = compute_area(faces, vertices)
         V = compute_volume(faces, vertices)
 
@@ -72,15 +70,18 @@ def main():
                                    b2=p.shear_params.b2)
         return E_A + E_V + E_b + E_s
 
-    def compute_loss():
-        energy = compute_energy()
-        forces = torch.autograd.grad(-energy, inputs=vertices,
-                                     create_graph=True,
-                                     materialize_grads=True)[0]
+    def compute_beads_energy():
+        # energy corresponding to a constant force on vertices.
+        # it is thus -F * x, where x is position and F is the force magnitude
+        x_r = vertices[idx_pf,0]
+        x_l = vertices[idx_mf,0]
+        Ebeads =  torch.sum(-fmagn * x_r)
+        Ebeads += torch.sum(+fmagn * x_l)
+        return Ebeads
 
-        resm = forces[idx_mf] + fmagn
-        resp = forces[idx_pf] - fmagn
-        return energy + kappa * (torch.mean(resm**2) + torch.mean(resp**2))
+    def compute_loss():
+        energy = compute_internal_energy() + compute_beads_energy()
+        return energy
 
     optim = Adam([vertices], lr=1e-4)
 
