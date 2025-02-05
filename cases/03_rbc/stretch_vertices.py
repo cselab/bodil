@@ -83,16 +83,16 @@ def main():
         energy = compute_internal_energy() + compute_beads_energy()
         return energy
 
-    optim = Adam([vertices], lr=1e-4)
+    optim = Adam([vertices], lr=1e-3)
 
     dump_id = 0
-    for epoch in range(50000):
+    for epoch in range(2501):
         optim.zero_grad()
         loss = compute_loss()
         loss.backward()
         optim.step()
 
-        if epoch % 1000 == 0:
+        if epoch % 100 == 0:
             l = loss.item()
             print(f"epoch {epoch:06d} loss {l:.4e}")
 
