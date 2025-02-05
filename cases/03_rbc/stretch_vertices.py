@@ -13,8 +13,9 @@ from rbc import (extract_dihedrals,
                  compute_shear_energy)
 
 def main():
-    mesh  = dpdprops.load_equilibrium_mesh(subdivisions=4)
-    mesh0 = dpdprops.load_stress_free_mesh(subdivisions=4)
+    subdivisions = 3
+    mesh  = dpdprops.load_equilibrium_mesh(subdivisions=subdivisions)
+    mesh0 = dpdprops.load_stress_free_mesh(subdivisions=subdivisions)
 
     RA = dpdprops.equivalent_sphere_radius(area=mesh.area)
 
@@ -86,7 +87,7 @@ def main():
     optim = Adam([vertices], lr=1e-3)
 
     dump_id = 0
-    for epoch in range(2501):
+    for epoch in range(2001):
         optim.zero_grad()
         loss = compute_loss()
         loss.backward()
