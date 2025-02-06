@@ -21,10 +21,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-csv', type=str, help="experimental data")
     parser.add_argument('--subdivisions', type=int, default=3, choices=[3, 4], help="resolution of the mesh")
+    parser.add_argument('--sigma', type=float, default=0.1, help="measurements errors, in micron")
     args = parser.parse_args()
 
     lr = 1e-4
-    num_epochs = 50000
+    num_epochs = 10000
     stats_every = 1000
 
     # RBC variables
@@ -57,7 +58,7 @@ def main():
     kB_ = 1.380649e-23 * ureg.joule / ureg.kelvin
     kBT = float(kB_ * T_ / (lscale * fscale))
 
-    sigma_ = 0.2 * ureg.micrometer
+    sigma_ = args.sigma * ureg.micrometer
     beta = 1/kBT
     sigma = float(sigma_ / lscale)
 
@@ -107,7 +108,7 @@ def main():
         E_s = compute_shear_energy(faces,
                                    vertices,
                                    vertices0,
-                                   Ka=p.shear_params.ka,
+                                   Ka=mu,
                                    mu=mu,
                                    a3=p.shear_params.a3,
                                    a4=p.shear_params.a4,
