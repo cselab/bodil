@@ -23,7 +23,7 @@ def rescale_diameters(mesh, D):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-csv', type=str, help="experimental data")
+    parser.add_argument('--data-csv', type=str, required=True, help="experimental data")
     parser.add_argument('--subdivisions', type=int, default=3, choices=[3, 4], help="resolution of the mesh")
     parser.add_argument('--sigma', type=float, default=0.1, help="measurements errors, in micron")
     args = parser.parse_args()
