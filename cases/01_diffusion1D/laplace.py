@@ -42,7 +42,7 @@ def main():
     num_samples = 5000
     lr = 5e-4
     sigma_data = 0.1
-    sigma_pde = 0.1
+    beta = 1e4
     rng = np.random.default_rng(seed=seed)
     num_data = 200
 
@@ -78,10 +78,10 @@ def main():
         pde_res = dudt - D * d2udx2
         data_res = u[xd_ids_, td_ids_] - ud_
 
-        log_like  = torch.sum(-pde_res**2 / (2 * sigma_pde**2)) - (nx * nt)/2 * np.log(2 * np.pi * sigma_pde**2)
-        log_like += torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
-
-        return -log_like
+        pde_loss = torch.mean(pde_res**2)
+        nlp = beta * pde_loss
+        nlp += torch.sum(data_res**2 / (2 * sigma_data**2)) + num_data/2 * np.log(2 * np.pi * sigma_data**2)
+        return nlp
 
     epochs = list(range(num_epochs))
     losses = []
