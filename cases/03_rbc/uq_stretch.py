@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pint
+from scipy.stats import multivariate_normal
 import torch
 from torch.optim import Adam
 
@@ -15,6 +16,9 @@ from rbc import (extract_dihedrals,
                  compute_bending_energy,
                  compute_shear_energy)
 
+def rescale_diameters(mesh, D):
+    Dm = np.ptp(mesh.vertices[:,0])
+    return D * Dm / D[0]
 
 
 def main():
@@ -25,8 +29,10 @@ def main():
     args = parser.parse_args()
 
     lr = 1e-4
-    num_epochs = 10000
-    stats_every = 1000
+    num_epochs = 15001
+    stats_every = 500
+    num_samples = 1000
+    seed = 923868
 
     # RBC variables
 
@@ -59,7 +65,7 @@ def main():
     kBT = float(kB_ * T_ / (lscale * fscale))
 
     sigma_ = args.sigma * ureg.micrometer
-    beta = 1/kBT
+    beta = 1e-2 / kBT
     sigma = float(sigma_ / lscale)
 
     print(f"beta = {beta}")
@@ -70,6 +76,9 @@ def main():
     fmagn = np.array([float(f * ureg.piconewton / fscale) for f in df['Fext']])
     D0d = np.array([float(d * ureg.micrometer / lscale) for d in df['D0']])
     D1d = np.array([float(d * ureg.micrometer / lscale) for d in df['D1']])
+
+    D0d = rescale_diameters(mesh, D0d)
+    D1d = rescale_diameters(mesh, D1d)
 
     nv = len(mesh.vertices)
     ninputs = len(fmagn)
@@ -83,18 +92,17 @@ def main():
     idx_pf = torch.from_numpy(idx[-nf:])
 
 
-    # Solution vector: vertices, mu.
-    y = torch.zeros(3 * nv * ninputs + 1)
+    # Solution vector: vertices
+    y = torch.zeros(3 * nv * ninputs)
 
     # initial guess
     stride = 3 * nv
     for i in range(ninputs):
         y[i*stride:(i+1)*stride] = torch.from_numpy(mesh.vertices.flatten()).float()
-    y[ninputs*stride + 0] = p.shear_params.mu
 
     y.requires_grad = True
 
-    def compute_internal_energy(vertices, mu):
+    def compute_internal_energy(vertices):
 
         A = compute_area(faces, vertices)
         V = compute_volume(faces, vertices)
@@ -108,8 +116,8 @@ def main():
         E_s = compute_shear_energy(faces,
                                    vertices,
                                    vertices0,
-                                   Ka=mu,
-                                   mu=mu,
+                                   Ka=p.shear_params.ka,
+                                   mu=p.shear_params.mu,
                                    a3=p.shear_params.a3,
                                    a4=p.shear_params.a4,
                                    b1=p.shear_params.b1,
@@ -125,24 +133,27 @@ def main():
         Ebeads += torch.sum(+f * x_l)
         return Ebeads
 
+    def compute_attachment_energy(vertices):
+        cm = torch.mean(vertices, dim=0)
+        return torch.sum(cm**2)
+
     def compute_neg_posterior(y):
         energy = 0
         log_likelihood = 0
-        mu = y[ninputs * stride + 0]
         for i in range(ninputs):
             vertices = y[i*stride:(i+1)*stride].reshape((nv,3))
-            energy += compute_internal_energy(vertices, mu) + compute_beads_energy(vertices, fmagn[i])
+            energy += compute_internal_energy(vertices) + compute_beads_energy(vertices, fmagn[i])
+            energy += compute_attachment_energy(vertices)
             D0 = torch.max(vertices[:,1]) - torch.min(vertices[:,1])
             D1 = torch.max(vertices[:,0]) - torch.min(vertices[:,0])
-            log_likelihood -= (D0 - D0d[i])**2 / (2 * sigma**2) - np.log(2 * np.pi * sigma**2) / 2
-            log_likelihood -= (D1 - D1d[i])**2 / (2 * sigma**2) - np.log(2 * np.pi * sigma**2) / 2
+            log_likelihood -= (D0 - D0d[i])**2 / (2 * sigma**2) + np.log(2 * np.pi * sigma**2) / 2
+            log_likelihood -= (D1 - D1d[i])**2 / (2 * sigma**2) + np.log(2 * np.pi * sigma**2) / 2
 
         nlp = beta * energy - log_likelihood
         return nlp
 
     optim = Adam([y], lr=lr)
 
-    dump_id = 0
     for epoch in range(num_epochs):
         optim.zero_grad()
         loss = compute_neg_posterior(y)
@@ -151,12 +162,24 @@ def main():
 
         if epoch % stats_every == 0:
             l = loss.item()
-            mu = y[-1].item()
-            print(f"epoch {epoch:06d} loss {l:.4e} mu {mu:.4e}")
+            print(f"epoch {epoch:06d} loss {l:.4e}")
 
-            #mesh.vertices = vertices.detach().numpy()
-            #mesh.export(f"stretch-{dump_id:06d}.ply")
-            dump_id += 1
+
+    # Laplace approximation
+    print(f"Computing Hessian (size {len(y)})...")
+    H = torch.autograd.functional.hessian(compute_neg_posterior, y, create_graph=True)
+    H = H.detach().numpy()
+    y = y.detach().numpy()
+
+
+    print("Computing covariance...")
+    cov = np.linalg.inv(H)
+    var = np.diag(cov)
+
+    print(f"Generating {num_samples} samples...")
+    dist = multivariate_normal(mean=y, cov=cov, seed=seed)
+    samples = dist.rvs(size=num_samples)
+    print("Done.")
 
 
     D0 = []
