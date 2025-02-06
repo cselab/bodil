@@ -38,7 +38,7 @@ def main():
     lr = 1e-3
     num_data = 10
     sigma_data = 0.1
-    sigma_ode = 0.1
+    beta = 1e4
     rng = np.random.default_rng(seed=seed)
 
     td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
@@ -71,11 +71,10 @@ def main():
         ode2_res = dvdt + omega * xm
         data_res = x[td_ids] - xd
 
-        log_like  = torch.sum(-ode1_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
-        log_like += torch.sum(-ode2_res**2 / (2 * sigma_ode**2)) - nt/2 * np.log(2 * np.pi * sigma_ode**2)
-        log_like += torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
-
-        return -log_like
+        loss_PDE = torch.mean(ode1_res**2 + ode2_res**2)
+        nlg  = beta * loss_PDE
+        nlg -= torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
+        return nlg
 
     epochs = list(range(num_epochs))
     losses = []
