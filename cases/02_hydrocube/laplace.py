@@ -21,6 +21,7 @@ def main():
 
     seed = 2349873
     sigma_pde = 0.01
+    beta = 840000
     sigma_data = np.array([0.05, 0.05, 0.07])
     lr = 1e-4
     num_epochs = 5000
@@ -96,9 +97,7 @@ def main():
             resy = dydt - vy[:-1]
             resz = dzdt - vz[:-1] - sedvz
 
-            nlp += torch.sum(resx**2 / (2 * sigma_pde**2)) + (nt-1)/2 * np.log(2 * np.pi * sigma_pde**2)
-            nlp += torch.sum(resy**2 / (2 * sigma_pde**2)) + (nt-1)/2 * np.log(2 * np.pi * sigma_pde**2)
-            nlp += torch.sum(resz**2 / (2 * sigma_pde**2)) + (nt-1)/2 * np.log(2 * np.pi * sigma_pde**2)
+            nlp += beta * torch.mean(resx**2 + resy**2 + resz**2)
 
             # data
             dresx = x - data_beads_[j,:,0]
