@@ -32,11 +32,12 @@ def main():
     args = parser.parse_args()
 
     lr = 5e-4
-    num_epochs = 10001
+    num_epochs = 15001
     stats_every = 500
     num_samples = 1000
     seed = 923868
     kmax = args.kmax
+    rng = np.random.default_rng(seed)
 
     # RBC variables
 
@@ -179,33 +180,50 @@ def main():
     y = y.detach().numpy()
 
 
-    print("Computing covariance...")
-    cov = np.linalg.inv(H)
-    var = np.diag(cov)
-
-    # eigvals, eigvecs = np.linalg.eig(H)
-    # print(np.sort(eigvals))
-
     print(f"Generating {num_samples} samples...")
-    dist = multivariate_normal(mean=y, cov=cov, seed=seed)
-    samples = dist.rvs(size=num_samples)
+    eigvals, eigvecs = np.linalg.eigh(H)
+    eigvals = np.maximum(1, eigvals) # TODO this is a hack.
+    samples = np.empty((len(y), num_samples))
+
+    for k in range(num_samples):
+        z = rng.normal(0, 1/np.sqrt(eigvals), len(y))
+        samples[:,k] = y + eigvecs @ z
+
     print("Done.")
 
 
     D0 = []
     D1 = []
+    D0_samples = []
+    D1_samples = []
     for i in range(ninputs):
-        vertices = y[i*stride:(i+1)*stride].reshape((nv,3)).detach().numpy()
+        vertices = phi @ y[i*stride:(i+1)*stride].reshape((kmax,3))
         D0.append(np.max(vertices[:,1]) - np.min(vertices[:,1]))
         D1.append(np.max(vertices[:,0]) - np.min(vertices[:,0]))
+
+        vertices_samples = np.einsum('ij,jlk->ilk', phi, samples[i*stride:(i+1)*stride,:].reshape((kmax,3,num_samples)))
+        D0_samples.append(np.max(vertices_samples[:,1,:], axis=0) - np.min(vertices_samples[:,1,:], axis=0))
+        D1_samples.append(np.max(vertices_samples[:,0,:], axis=0) - np.min(vertices_samples[:,0,:], axis=0))
 
         mesh.vertices = vertices
         mesh.export(f"stretch-{i:06d}.ply")
 
+    D0_samples = np.array(D0_samples)
+    D1_samples = np.array(D1_samples)
+
+    D0_lo = np.quantile(D0_samples, q=0.05, axis=1)
+    D0_hi = np.quantile(D0_samples, q=0.95, axis=1)
+
+    D1_lo = np.quantile(D1_samples, q=0.05, axis=1)
+    D1_hi = np.quantile(D1_samples, q=0.95, axis=1)
+
     fig, ax = plt.subplots()
 
-    ax.plot(fmagn, D0, color='C0')
-    ax.plot(fmagn, D1, color='C0')
+    # ax.plot(fmagn, D0, color='C0')
+    # ax.plot(fmagn, D1, color='C0')
+
+    ax.errorbar(fmagn, D0, np.vstack((D0_lo, D0_hi)), color='C0', capsize=2, fmt='o')
+    ax.errorbar(fmagn, D1, np.vstack((D1_lo, D1_hi)), color='C0', capsize=2, fmt='o')
 
     ax.plot(fmagn, D0d, color='C0', ls='none', marker='+')
     ax.plot(fmagn, D1d, color='C0', ls='none', marker='+')
