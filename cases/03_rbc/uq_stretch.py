@@ -16,6 +16,8 @@ from rbc import (extract_dihedrals,
                  compute_bending_energy,
                  compute_shear_energy)
 
+from graph_laplacian import compute_graph_laplacian_basis
+
 def rescale_diameters(mesh, D):
     Dm = np.ptp(mesh.vertices[:,0])
     return D * Dm / D[0]
@@ -26,19 +28,24 @@ def main():
     parser.add_argument('--data-csv', type=str, required=True, help="experimental data")
     parser.add_argument('--subdivisions', type=int, default=3, choices=[3, 4], help="resolution of the mesh")
     parser.add_argument('--sigma', type=float, default=0.1, help="measurements errors, in micron")
+    parser.add_argument('--kmax', type=int, default=100, help='number of basis functions to use.')
     args = parser.parse_args()
 
-    lr = 1e-4
-    num_epochs = 15001
+    lr = 5e-4
+    num_epochs = 10001
     stats_every = 500
     num_samples = 1000
     seed = 923868
+    kmax = args.kmax
 
     # RBC variables
 
     subdivisions = args.subdivisions
     mesh  = dpdprops.load_equilibrium_mesh(subdivisions=subdivisions)
     mesh0 = dpdprops.load_stress_free_mesh(subdivisions=subdivisions)
+
+    phi = compute_graph_laplacian_basis(mesh, k_max=kmax)
+    phi_ = torch.from_numpy(phi).float()
 
     RA = dpdprops.equivalent_sphere_radius(area=mesh.area)
 
@@ -92,13 +99,13 @@ def main():
     idx_pf = torch.from_numpy(idx[-nf:])
 
 
-    # Solution vector: vertices
-    y = torch.zeros(3 * nv * ninputs)
+    # Solution vector: vertices projected on basis functions
+    stride = 3 * kmax
+    y = torch.zeros(ninputs * stride)
 
     # initial guess
-    stride = 3 * nv
     for i in range(ninputs):
-        y[i*stride:(i+1)*stride] = torch.from_numpy(mesh.vertices.flatten()).float()
+        y[i*stride:(i+1)*stride] = (phi_.T @ torch.from_numpy(mesh.vertices).float()).flatten()
 
     y.requires_grad = True
 
@@ -141,7 +148,7 @@ def main():
         energy = 0
         log_likelihood = 0
         for i in range(ninputs):
-            vertices = y[i*stride:(i+1)*stride].reshape((nv,3))
+            vertices = phi_ @ y[i*stride:(i+1)*stride].reshape((kmax,3))
             energy += compute_internal_energy(vertices) + compute_beads_energy(vertices, fmagn[i])
             energy += compute_attachment_energy(vertices)
             D0 = torch.max(vertices[:,1]) - torch.min(vertices[:,1])
@@ -175,6 +182,9 @@ def main():
     print("Computing covariance...")
     cov = np.linalg.inv(H)
     var = np.diag(cov)
+
+    # eigvals, eigvecs = np.linalg.eig(H)
+    # print(np.sort(eigvals))
 
     print(f"Generating {num_samples} samples...")
     dist = multivariate_normal(mean=y, cov=cov, seed=seed)
