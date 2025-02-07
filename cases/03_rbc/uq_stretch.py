@@ -85,7 +85,7 @@ def main():
 
     # Data
     df = pd.read_csv(args.data_csv)
-    fmagn = np.array([float(f * ureg.piconewton / fscale) for f in df['Fext']])
+    fmagn_ = np.array([float(f * ureg.piconewton / fscale) for f in df['Fext']])
     D0d = np.array([float(d * ureg.micrometer / lscale) for d in df['D0']])
     D1d = np.array([float(d * ureg.micrometer / lscale) for d in df['D1']])
 
@@ -93,11 +93,11 @@ def main():
     D1d = rescale_diameters(mesh, D1d)
 
     nv = len(mesh.vertices)
-    ninputs = len(fmagn)
+    ninputs = len(fmagn_)
 
     # force pulling on both sides of the mesh with magnitude fmagn and on nf vertices along x.
     nf = int(0.05 * nv)
-    fmagn /= nf
+    fmagn = fmagn_ / nf
 
     idx = np.argsort(mesh.vertices[:,0])
     idx_mf = torch.from_numpy(idx[:nf])
@@ -201,6 +201,11 @@ def main():
     D0d *= lfactor
     D1d *= lfactor
 
+    # convert force to piconewtons.
+    ffactor = fscale.to('pN').magnitude
+    fmagn_ *= ffactor
+
+    # compute MAP and quantiles of diameters
     D0 = []
     D1 = []
     D0_samples = []
@@ -236,13 +241,26 @@ def main():
     D1_lo = np.quantile(D1_samples, q=0.05, axis=1)
     D1_hi = np.quantile(D1_samples, q=0.95, axis=1)
 
+    data = {
+        'f': fmagn_,
+        'D0_MAP': D0,
+        'D1_MAP': D1,
+        'D0_lo': D0_lo,
+        'D0_hi': D0_hi,
+        'D1_lo': D1_lo,
+        'D1_hi': D1_hi,
+        'D0d': D0d,
+        'D1d': D1d
+    }
+    pd.DataFrame(data).to_csv('laplace_pred.csv')
+
     fig, ax = plt.subplots()
 
-    ax.errorbar(fmagn, D0, np.vstack((D0_lo, D0_hi)), color='C0', capsize=2, fmt='o')
-    ax.errorbar(fmagn, D1, np.vstack((D1_lo, D1_hi)), color='C0', capsize=2, fmt='o')
+    ax.errorbar(fmagn_, D0, np.vstack((D0_lo, D0_hi)), color='C0', capsize=2, fmt='o')
+    ax.errorbar(fmagn_, D1, np.vstack((D1_lo, D1_hi)), color='C0', capsize=2, fmt='o')
 
-    ax.plot(fmagn, D0d, color='C0', ls='none', marker='+')
-    ax.plot(fmagn, D1d, color='C0', ls='none', marker='+')
+    ax.plot(fmagn_, D0d, color='C0', ls='none', marker='+')
+    ax.plot(fmagn_, D1d, color='C0', ls='none', marker='+')
 
     ax.set_xlabel(r"$F_{ext}$ (pN)")
     ax.set_ylabel(r"$D$ ($\mu$m)")
