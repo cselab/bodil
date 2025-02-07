@@ -4,6 +4,7 @@ import argparse
 import dpdprops
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import pint
 from scipy.stats import multivariate_normal
@@ -73,7 +74,7 @@ def main():
     kBT = float(kB_ * T_ / (lscale * fscale))
 
     sigma_ = args.sigma * ureg.micrometer
-    beta = 1e-2 / kBT
+    beta = 1 / kBT
     sigma = float(sigma_ / lscale)
 
     print(f"beta = {beta}")
@@ -182,7 +183,8 @@ def main():
 
     print(f"Generating {num_samples} samples...")
     eigvals, eigvecs = np.linalg.eigh(H)
-    eigvals = np.maximum(1, eigvals) # TODO this is a hack.
+    # eigvals = np.maximum(1, eigvals) # TODO this is a hack.
+    eigvals = np.where(eigvals < 1e2, 1e6, eigvals) # TODO this is a hack.
     samples = np.empty((len(y), num_samples))
 
     for k in range(num_samples):
@@ -207,6 +209,14 @@ def main():
 
         mesh.vertices = vertices
         mesh.export(f"stretch-{i:06d}.ply")
+
+        path = f"samples_{i}"
+        os.makedirs(path, exist_ok=True)
+
+        for k in range(num_samples):
+            mesh.vertices = vertices_samples[:,:,k]
+            mesh.export(os.path.join(path, f"sample-{k:06d}.ply"))
+
 
     D0_samples = np.array(D0_samples)
     D1_samples = np.array(D1_samples)
