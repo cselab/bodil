@@ -28,7 +28,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-csv', type=str, required=True, help="experimental data")
     parser.add_argument('--subdivisions', type=int, default=3, choices=[3, 4], help="resolution of the mesh")
-    parser.add_argument('--sigma', type=float, default=0.1, help="measurements errors, in micron")
+    parser.add_argument('--sigma', type=float, default=0.05, help="measurements errors, in micron")
     parser.add_argument('--kmax', type=int, default=100, help='number of basis functions to use.')
     args = parser.parse_args()
 
@@ -39,6 +39,9 @@ def main():
     seed = 923868
     kmax = args.kmax
     rng = np.random.default_rng(seed)
+
+    # position and rotation attachments
+    k_attach = 1e3
 
     # RBC variables
 
@@ -100,7 +103,6 @@ def main():
     idx_mf = torch.from_numpy(idx[:nf])
     idx_pf = torch.from_numpy(idx[-nf:])
 
-
     # Solution vector: vertices projected on basis functions
     stride = 3 * kmax
     y = torch.zeros(ninputs * stride)
@@ -144,7 +146,7 @@ def main():
 
     def compute_attachment_energy(vertices):
         cm = torch.mean(vertices, dim=0)
-        return torch.sum(cm**2)
+        return k_attach * torch.sum(cm**2)
 
     def compute_neg_posterior(y):
         energy = 0
@@ -183,8 +185,7 @@ def main():
 
     print(f"Generating {num_samples} samples...")
     eigvals, eigvecs = np.linalg.eigh(H)
-    # eigvals = np.maximum(1, eigvals) # TODO this is a hack.
-    eigvals = np.where(eigvals < 1e2, 1e6, eigvals) # TODO this is a hack.
+    eigvals = np.where(eigvals < 0, 1e12, eigvals) # remove components that are not determined.
     samples = np.empty((len(y), num_samples))
 
     for k in range(num_samples):
@@ -228,9 +229,6 @@ def main():
     D1_hi = np.quantile(D1_samples, q=0.95, axis=1)
 
     fig, ax = plt.subplots()
-
-    # ax.plot(fmagn, D0, color='C0')
-    # ax.plot(fmagn, D1, color='C0')
 
     ax.errorbar(fmagn, D0, np.vstack((D0_lo, D0_hi)), color='C0', capsize=2, fmt='o')
     ax.errorbar(fmagn, D1, np.vstack((D1_lo, D1_hi)), color='C0', capsize=2, fmt='o')
