@@ -31,6 +31,8 @@ def main():
     ax.set_aspect('equal', adjustable='box')
     ax.set_xlabel(r"$x$ ($\mu$m)")
     ax.set_ylabel(r"$z$ ($\mu$m)")
+    ax.set_xlim(-8, 8)
+    ax.set_ylim(-4, 4)
     plt.tight_layout()
 
     if out is None:

@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--data-csv', type=str, required=True, help="experimental data")
     parser.add_argument('--subdivisions', type=int, default=3, choices=[3, 4], help="resolution of the mesh")
     parser.add_argument('--sigma', type=float, default=0.05, help="measurements errors, in micron")
+    parser.add_argument('--beta', type=float, default=1e-1, help="scale of beta factor, in 1/ambiant temperature energy units")
     parser.add_argument('--kmax', type=int, default=100, help='number of basis functions to use.')
     args = parser.parse_args()
 
@@ -77,7 +78,7 @@ def main():
     kBT = float(kB_ * T_ / (lscale * fscale))
 
     sigma_ = args.sigma * ureg.micrometer
-    beta = 1e-1 / kBT
+    beta = args.beta / kBT
     sigma = float(sigma_ / lscale)
 
     print(f"beta = {beta}")
