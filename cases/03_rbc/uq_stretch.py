@@ -77,7 +77,7 @@ def main():
     kBT = float(kB_ * T_ / (lscale * fscale))
 
     sigma_ = args.sigma * ureg.micrometer
-    beta = 1 / kBT
+    beta = 1e-1 / kBT
     sigma = float(sigma_ / lscale)
 
     print(f"beta = {beta}")
@@ -194,6 +194,12 @@ def main():
 
     print("Done.")
 
+    # convert results to micrometers.
+    lfactor = lscale.to('um').magnitude
+    y *= lfactor
+    samples *= lfactor
+    D0d *= lfactor
+    D1d *= lfactor
 
     D0 = []
     D1 = []
@@ -217,6 +223,8 @@ def main():
         for k in range(num_samples):
             mesh.vertices = vertices_samples[:,:,k]
             mesh.export(os.path.join(path, f"sample-{k:06d}.ply"))
+
+
 
 
     D0_samples = np.array(D0_samples)
