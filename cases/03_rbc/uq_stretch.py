@@ -204,8 +204,8 @@ def main():
         D1.append(np.max(vertices[:,0]) - np.min(vertices[:,0]))
 
         vertices_samples = np.einsum('ij,jlk->ilk', phi, samples[i*stride:(i+1)*stride,:].reshape((kmax,3,num_samples)))
-        D0_samples.append(np.max(vertices_samples[:,1,:], axis=0) - np.min(vertices_samples[:,1,:], axis=0))
-        D1_samples.append(np.max(vertices_samples[:,0,:], axis=0) - np.min(vertices_samples[:,0,:], axis=0))
+        D0_samples.append(np.max(vertices_samples[:,1,:], axis=-1) - np.min(vertices_samples[:,1,:], axis=-1))
+        D1_samples.append(np.max(vertices_samples[:,0,:], axis=-1) - np.min(vertices_samples[:,0,:], axis=-1))
 
         mesh.vertices = vertices
         mesh.export(f"stretch-{i:06d}.ply")
