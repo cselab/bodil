@@ -173,13 +173,13 @@ def main():
             if patience_count >= patience:
                 break
 
-        return best_loss, y.detach().copy()
+        return best_loss, y.detach().clone()
 
 
 
     mu0 = p.shear_params.mu
 
-    mus = np.linspace(mu0/2, 2*mu0, 5)
+    mus = np.linspace(mu0/2, 4*mu0, 10)
     losses = []
     for mu in mus:
         loss, y = compute_neg_log_posterior(mu, y)
