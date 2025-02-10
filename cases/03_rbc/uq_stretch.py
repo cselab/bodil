@@ -50,6 +50,8 @@ def main():
     mesh  = dpdprops.load_equilibrium_mesh(subdivisions=subdivisions)
     mesh0 = dpdprops.load_stress_free_mesh(subdivisions=subdivisions)
 
+    print(f"nv = {len(mesh.vertices)}, nt = {len(mesh.faces)}")
+
     phi = compute_graph_laplacian_basis(mesh, k_max=kmax)
     phi_ = torch.from_numpy(phi).float()
 
@@ -81,8 +83,8 @@ def main():
     beta = args.beta / kBT
     sigma = float(sigma_ / lscale)
 
-    print(f"beta = {beta}")
-    print(f"sigma = {sigma}")
+    print(f"beta = {beta} ({(beta / lscale / fscale).to(1/ureg.joule)})")
+    print(f"sigma = {sigma} ({(sigma * lscale).to(ureg.um)})")
 
     # Data
     df = pd.read_csv(args.data_csv)
