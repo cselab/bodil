@@ -16,7 +16,7 @@ def main():
     mesh_paths = sorted(glob.glob(os.path.join(args.samples_dir, "*.ply")))
     out = args.out
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(2.8,1.4))
 
     for mesh_path in mesh_paths:
         mesh = trimesh.load(mesh_path)
@@ -29,10 +29,12 @@ def main():
         ax.plot(x.T, y.T, '-', color='r', alpha=1, lw=0.001)
 
     ax.set_aspect('equal', adjustable='box')
-    ax.set_xlabel(r"$x$ ($\mu$m)")
-    ax.set_ylabel(r"$z$ ($\mu$m)")
+    #ax.set_xlabel(r"$x$ ($\mu$m)")
+    #ax.set_ylabel(r"$z$ ($\mu$m)")
     ax.set_xlim(-8, 8)
     ax.set_ylim(-4, 4)
+
+    ax.set_axis_off()
     plt.tight_layout()
 
     if out is None:
