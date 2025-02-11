@@ -43,7 +43,7 @@ def main():
         optim.zero_grad()
         neg_E = -energy(x)
         forces = torch.autograd.grad(neg_E, x, create_graph=True, materialize_grads=True)[0]
-        loss = torch.sum(forces**2)
+        loss = 1/4 * torch.sum(forces**2)
         loss.backward()
         optim.step()
         losses_forces.append(loss.item())
@@ -53,8 +53,8 @@ def main():
     print(x.detach().numpy())
 
     fig, ax = plt.subplots()
-    ax.plot(epochs, losses_energy, label='energy')
-    ax.plot(epochs, losses_forces, label='forces')
+    ax.plot(epochs, losses_energy, '-', label='energy')
+    ax.plot(epochs, losses_forces, '--', label='forces')
     ax.set_xlabel('epoch')
     ax.set_ylabel('loss')
     ax.set_yscale('log')
