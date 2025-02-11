@@ -25,10 +25,12 @@ def main():
     parser.add_argument('--data-csv', type=str, required=True, help="experimental data")
     parser.add_argument('--subdivisions', type=int, default=3, choices=[3, 4], help="resolution of the mesh")
     parser.add_argument('--sigma', type=float, default=0.05, help="measurements errors, in micron")
-    parser.add_argument('--beta', type=float, default=1e-1, help="scale of beta factor, in 1/ambiant temperature energy units")
+    parser.add_argument('--beta', type=float, default=1, help="scale of beta factor, in 1/ambiant temperature energy units")
     args = parser.parse_args()
 
-    lr = 1e-4
+    dtype = torch.float64
+
+    lr = 5e-5
     num_epochs = 15001
 
     # RBC variables
@@ -43,7 +45,7 @@ def main():
 
     dihedrals = extract_dihedrals(mesh.faces)
     faces = torch.from_numpy(mesh.faces)
-    vertices0 = torch.from_numpy(mesh0.vertices).float()
+    vertices0 = torch.from_numpy(mesh0.vertices).to(dtype)
 
     ureg = pint.UnitRegistry()
     params = dpdprops.JuelicherLimRBCDefaultParams(ureg)
@@ -59,15 +61,12 @@ def main():
     p.ka /= 1e3
     p.kv /= 1e3
 
-    T_ = ureg.Quantity(20, ureg.degC).to('kelvin')
-    kB_ = 1.380649e-23 * ureg.joule / ureg.kelvin
-    kBT = float(kB_ * T_ / (lscale * fscale))
-
     sigma_ = args.sigma * ureg.micrometer
-    beta = args.beta / kBT
     sigma = float(sigma_ / lscale)
 
-    print(f"beta = {beta} ({(beta / lscale / fscale).to(1/ureg.joule)})")
+    beta = args.beta
+
+    print(f"beta = {beta} ({(beta / fscale).to(1/ureg.piconewton)})")
     print(f"sigma = {sigma} ({(sigma * lscale).to(ureg.um)})")
 
     # Data
@@ -96,7 +95,7 @@ def main():
 
     # initial guess
     for i in range(ninputs):
-        y[i*stride:(i+1)*stride] = torch.from_numpy(mesh.vertices).float().flatten()
+        y[i*stride:(i+1)*stride] = torch.from_numpy(mesh.vertices).to(dtype).flatten()
 
     def compute_internal_energy(vertices, p):
 
@@ -134,14 +133,14 @@ def main():
         D1 = torch.max(vertices[:,0]) - torch.min(vertices[:,0])
         return (D0 - D0d)**2 / (2 * sigma**2) + (D1 - D1d)**2 / (2 * sigma**2)
 
-    def compute_loss(y, p):
-        loss = 0
+    def compute_losses(y, p):
+        data_loss = 0
+        energy = 0
         for i in range(ninputs):
             vertices = y[i*stride:(i+1)*stride].reshape((nv,3))
-            energy = compute_internal_energy(vertices, p) + compute_beads_energy(vertices, fmagn[i])
-            loss += beta * energy
-            loss += compute_data_loss(vertices, D0d[i], D1d[i])
-        return loss
+            energy += compute_internal_energy(vertices, p) + compute_beads_energy(vertices, fmagn[i])
+            data_loss += compute_data_loss(vertices, D0d[i], D1d[i])
+        return energy, data_loss
 
     def compute_neg_log_posterior(mu, initial_guess):
         params = p
@@ -151,13 +150,17 @@ def main():
         y = initial_guess.clone()
         y.requires_grad = True
         optim = Adam([y], lr=lr)
-        patience = 10
+        patience = 100
         patience_count = 0
         best_loss = np.inf
 
         for epoch in range(num_epochs):
             optim.zero_grad()
-            loss = compute_loss(y, params)
+            energy, data_loss = compute_losses(y, params)
+            forces = torch.autograd.grad(-energy, inputs=y,
+                                         create_graph=True,
+                                         materialize_grads=True)[0]
+            loss = data_loss + beta * torch.mean(forces**2)
             loss.backward()
             optim.step()
 
@@ -181,19 +184,19 @@ def main():
 
     mu0 = p.shear_params.mu
 
-    mus = np.linspace(mu0/2, 2*mu0, 10)
+    mus = np.linspace(mu0/2, 6*mu0, 15)
     losses = []
     for mu in mus:
-        loss, y = compute_neg_log_posterior(mu, y)
+        loss, y_ = compute_neg_log_posterior(mu, y)
         losses.append(loss)
         print(f"mu {mu:.4e}, loss {loss:+.4e}")
 
 
-    ffactor = fscale.to('piconewton').magnitude
+    mufactor = (fscale/lscale).to(ureg.uN/ureg.m).magnitude
 
     fig, ax = plt.subplots()
-    ax.plot(mus * ffactor, losses)
-    ax.set_xlabel('$F$ (pN)')
+    ax.plot(mus * mufactor, losses)
+    ax.set_xlabel(r'$\mu$ ($\mu$N/m)')
     #ax.set_yscale('log')
     plt.tight_layout()
     plt.show()
