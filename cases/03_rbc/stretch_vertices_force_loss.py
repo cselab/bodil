@@ -95,22 +95,24 @@ def main():
 
     optim = Adam([vertices], lr=1e-3)
 
-    epochs = list(range(2001))
+    epochs = list(range(100001))
     flosses = []
     energies = []
     dump_id = 0
     for epoch in epochs:
         optim.zero_grad()
         energy, loss = compute_loss()
-        energy.backward()
+        #energy.backward()
+        loss.backward()
         optim.step()
 
         flosses.append(loss.item())
         energies.append(energy.item())
 
-        if epoch % 100 == 0:
-            l = energy.item()
-            print(f"epoch {epoch:06d} loss {l:.4e}")
+        if epoch % 1000 == 0:
+            e = energy.item()
+            l = loss.item()
+            print(f"epoch {epoch:06d} energy {e:.4e} loss {l:.4e}")
 
             mesh.vertices = vertices.detach().numpy()
             mesh.export(f"stretch-{dump_id:06d}.ply")
