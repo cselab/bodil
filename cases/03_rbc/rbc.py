@@ -71,7 +71,7 @@ def _compute_triangle_areas(faces, vertices):
 def compute_vertex_areas(faces, vertices):
     nv = len(vertices)
     faces_areas = _compute_triangle_areas(faces, vertices)
-    vertex_areas = torch.zeros(nv)
+    vertex_areas = torch.zeros_like(vertices[:,0])
     vertex_areas.index_add_(dim=0, index=faces[:,0], source=faces_areas)
     vertex_areas.index_add_(dim=0, index=faces[:,1], source=faces_areas)
     vertex_areas.index_add_(dim=0, index=faces[:,2], source=faces_areas)
@@ -114,7 +114,7 @@ def compute_vertex_mean_curvatures(faces,
 
     vertex_areas = compute_vertex_areas(faces, vertices)
 
-    vertex_mean_curvatures = torch.zeros(nv)
+    vertex_mean_curvatures = torch.zeros_like(vertices[:,0])
     vertex_mean_curvatures.index_add_(dim=0, index=dihedrals[:,2], source=ltheta)
     vertex_mean_curvatures.index_add_(dim=0, index=dihedrals[:,0], source=ltheta)
     vertex_mean_curvatures /= 8 * vertex_areas

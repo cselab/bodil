@@ -15,6 +15,8 @@ from rbc import (extract_dihedrals,
                  compute_shear_energy)
 
 def main():
+    dtype = torch.float64
+
     subdivisions = 3
     mesh  = dpdprops.load_equilibrium_mesh(subdivisions=subdivisions)
     mesh0 = dpdprops.load_stress_free_mesh(subdivisions=subdivisions)
@@ -23,8 +25,8 @@ def main():
 
     dihedrals = extract_dihedrals(mesh.faces)
     faces = torch.from_numpy(mesh.faces)
-    vertices = torch.from_numpy(mesh.vertices).float()
-    vertices0 = torch.from_numpy(mesh0.vertices).float()
+    vertices = torch.from_numpy(mesh.vertices).to(dtype)
+    vertices0 = torch.from_numpy(mesh0.vertices).to(dtype)
     vertices.requires_grad = True
 
     ureg = pint.UnitRegistry()
@@ -87,8 +89,8 @@ def main():
         energy = compute_internal_energy() + compute_beads_energy()
         forces = torch.autograd.grad(-energy, inputs=vertices,
                                      create_graph=True, materialize_grads=True)[0]
-        areas = compute_vertex_areas(faces, vertices)
-        loss = torch.sum((forces / areas[:,None])**2)
+        #areas = compute_vertex_areas(faces, vertices)
+        loss = torch.sum(forces**2)
         return energy, loss
 
     optim = Adam([vertices], lr=1e-3)
