@@ -10,13 +10,11 @@ def main():
     dim = 2
 
     def energy(x):
-        return k * torch.sum(x**2)
-
-    x = torch.ones(dim, requires_grad=True)
+        return k / 2 * torch.sum(x**2)
 
     # test 1. minimize energy
+    x = torch.ones(dim, requires_grad=True)
     optim = Adam([x], lr=1e-2)
-
     epochs = list(range(1000))
     losses_energy = []
     for epoch in epochs:
@@ -30,20 +28,15 @@ def main():
 
     print(x.detach().numpy())
 
-
     # test 2. compute derivative and minimize loss.
-
     x = torch.ones(dim, requires_grad=True)
-
-    # test 1. minimize energy
     optim = Adam([x], lr=1e-2)
-
     losses_forces = []
     for epoch in epochs:
         optim.zero_grad()
         neg_E = -energy(x)
         forces = torch.autograd.grad(neg_E, x, create_graph=True, materialize_grads=True)[0]
-        loss = 1/4 * torch.sum(forces**2)
+        loss = torch.sum(forces**2)
         loss.backward()
         optim.step()
         losses_forces.append(loss.item())
