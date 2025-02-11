@@ -8,6 +8,7 @@ import torch
 from torch.optim import Adam
 
 from rbc import (extract_dihedrals,
+                 compute_vertex_areas,
                  compute_area,
                  compute_volume,
                  compute_bending_energy,
@@ -82,10 +83,12 @@ def main():
         return Ebeads
 
     def compute_loss():
+
         energy = compute_internal_energy() + compute_beads_energy()
         forces = torch.autograd.grad(-energy, inputs=vertices,
                                      create_graph=True, materialize_grads=True)[0]
-        loss = torch.sum(forces**2)
+        areas = compute_vertex_areas(faces, vertices)
+        loss = torch.sum((forces / areas[:,None])**2)
         return energy, loss
 
     optim = Adam([vertices], lr=1e-3)
