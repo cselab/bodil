@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--beta', type=float, default=1e-1, help="scale of beta factor, in 1/ambiant temperature energy units")
     args = parser.parse_args()
 
-    lr = 5e-4
+    lr = 1e-4
     num_epochs = 15001
 
     # RBC variables
@@ -129,16 +129,18 @@ def main():
         Ebeads += torch.sum(+f * x_l)
         return Ebeads
 
+    def compute_data_loss(vertices, D0d, D1d):
+        D0 = torch.max(vertices[:,1]) - torch.min(vertices[:,1])
+        D1 = torch.max(vertices[:,0]) - torch.min(vertices[:,0])
+        return (D0 - D0d)**2 / (2 * sigma**2) + (D1 - D1d)**2 / (2 * sigma**2)
+
     def compute_loss(y, p):
         loss = 0
         for i in range(ninputs):
             vertices = y[i*stride:(i+1)*stride].reshape((nv,3))
             energy = compute_internal_energy(vertices, p) + compute_beads_energy(vertices, fmagn[i])
-            D0 = torch.max(vertices[:,1]) - torch.min(vertices[:,1])
-            D1 = torch.max(vertices[:,0]) - torch.min(vertices[:,0])
-            loss -= (D0 - D0d[i])**2 / (2 * sigma**2) + np.log(2 * np.pi * sigma**2) / 2
-            loss -= (D1 - D1d[i])**2 / (2 * sigma**2) + np.log(2 * np.pi * sigma**2) / 2
             loss += beta * energy
+            loss += compute_data_loss(vertices, D0d[i], D1d[i])
         return loss
 
     def compute_neg_log_posterior(mu, initial_guess):
@@ -179,15 +181,20 @@ def main():
 
     mu0 = p.shear_params.mu
 
-    mus = np.linspace(mu0/2, 4*mu0, 10)
+    mus = np.linspace(mu0/2, 2*mu0, 10)
     losses = []
     for mu in mus:
         loss, y = compute_neg_log_posterior(mu, y)
         losses.append(loss)
         print(f"mu {mu:.4e}, loss {loss:+.4e}")
 
+
+    ffactor = fscale.to('piconewton').magnitude
+
     fig, ax = plt.subplots()
-    ax.plot(mus, losses)
+    ax.plot(mus * ffactor, losses)
+    ax.set_xlabel('$F$ (pN)')
+    #ax.set_yscale('log')
     plt.tight_layout()
     plt.show()
 
