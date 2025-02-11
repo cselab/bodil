@@ -6,8 +6,8 @@ import torch
 from torch.optim import Adam
 
 def main():
-    k = 1
-    dim = 2
+    k = 4
+    dim = 5
 
     def energy(x):
         return k / 2 * torch.sum(x**2)
@@ -36,7 +36,7 @@ def main():
         optim.zero_grad()
         neg_E = -energy(x)
         forces = torch.autograd.grad(neg_E, x, create_graph=True, materialize_grads=True)[0]
-        loss = torch.sum(forces**2)
+        loss = torch.sum(forces**2 / (2 * k))
         loss.backward()
         optim.step()
         losses_forces.append(loss.item())
