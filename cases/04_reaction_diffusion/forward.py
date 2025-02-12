@@ -2,10 +2,13 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 from random_field import generate_random_field
 
 def main():
+    out_dir = "out_forward"
+    os.makedirs(out_dir, exist_ok=True)
     Dw = 0.005
     Dg = 0.1
     rho = 8
@@ -27,8 +30,11 @@ def main():
 
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.imshow(diff_field, origin='lower', extent=[0, L, 0, L], vmin=Dw, vmax=Dg)
-    plt.savefig("diff_field.png")
+    plt.savefig(os.path.join(out_dir, "diff_field.png"))
     plt.close(fig)
+
+    with open(os.path.join(out_dir, "diff_field.npy"), "wb") as f:
+        np.save(f, diff_field)
 
     X, Y = np.meshgrid(x, y)
 
@@ -67,11 +73,16 @@ def main():
         if t >= next_tdump:
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.imshow(u, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
-            plt.savefig(f"u-{dump_id:06d}.png")
+            plt.savefig(os.path.join(out_dir, f"u-{dump_id:06d}.png"))
             plt.close(fig)
-            print(f"iteration {iteration:06d} (time {t:.4f})")
+            if dump_id % 10 == 0:
+                print(f"iteration {iteration:06d} (time {t:.4f})")
             next_tdump += t_every
             dump_id += 1
+
+    with open(os.path.join(out_dir, "u_final.npy"), "wb") as f:
+        np.save(f, u)
+
 
 if __name__ == '__main__':
     main()
