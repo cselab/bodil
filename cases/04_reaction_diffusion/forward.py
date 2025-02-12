@@ -25,7 +25,7 @@ def main():
     dx = x[1] - x[0]
     dy = y[1] - y[0]
 
-    diff_field = generate_random_field(nx, ny, smoothness=nx/8, rng=rng)
+    diff_field = generate_random_field(nx, ny, smoothness=nx/8, rng=rng).T
     diff_field = np.where(diff_field > 0, Dw, Dg)
 
     fig, ax = plt.subplots(figsize=(8, 8))
