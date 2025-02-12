@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+
+import argparse
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import pandas as pd
+import torch
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
+    parser.add_argument("--out-dir", type=str, default="out_inverse", help="output directory")
+    args = parser.parse_args()
+
+    torch.set_default_dtype(torch.float32)
+
+    num_epochs = 10000
+    report_every = 500
+    lr = 1e-3
+
+    forward_dir = args.forward_dir
+    out_dir = args.out_dir
+
+    os.makedirs(out_dir, exist_ok=True)
+
+    with open(os.path.join(forward_dir, "diff_field.npy"), "rb") as f:
+        diff_field = np.load(f)
+
+    with open(os.path.join(forward_dir, "u_final.npy"), "rb") as f:
+        u_final = torch.from_numpy(np.load(f))
+
+    ny, nx = u_final.shape
+    assert diff_field.shape[0] == ny
+    assert diff_field.shape[1] == nx
+
+    rho = 8
+    L = 1.0
+    tend = 1.0
+    nt = 128
+    dt = tend / nt
+
+    x = np.linspace(0, L, nx)
+    y = np.linspace(0, L, ny)
+
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    X, Y = np.meshgrid(x, y)
+
+    Dm0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=1)) / 2)[:,:,None]
+    Dp0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=1)) / 2)[:,:,None]
+    D0m = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=0)) / 2)[:,:,None]
+    D0p = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=0)) / 2)[:,:,None]
+
+    u = torch.zeros((ny, nx, nt))
+    # initial guess
+    u.copy_(u_final[:,:,None])
+
+    u.requires_grad = True
+
+    def pde_loss(u):
+        um0 = torch.roll(u, shifts=+1, dims=1)
+        up0 = torch.roll(u, shifts=-1, dims=1)
+        u0m = torch.roll(u, shifts=+1, dims=0)
+        u0p = torch.roll(u, shifts=-1, dims=0)
+
+        A  =  (Dp0 * (up0 - u) - Dm0 * (u - um0)) / dx**2 \
+            + (D0p * (u0p - u) - D0m * (u - u0m)) / dy**2
+        B = rho * u * (1 - u)
+
+        rhs = (A[:,:,1:] + A[:,:,:-1] + B[:,:,1:] + B[:,:,:-1]) / 2
+        dudt = torch.diff(u, dim=-1) / dt
+
+        residuals = dudt - rhs
+
+        return torch.mean(residuals**2)
+
+    def data_loss(u):
+        residuals = u[:,:,-1] - u_final
+        return torch.mean(residuals**2)
+
+    optim = torch.optim.Adam([u], lr=lr)
+
+    epochs = list(range(num_epochs))
+    pde_losses = []
+    data_losses = []
+    losses = []
+
+    for epoch in epochs:
+        optim.zero_grad()
+        ploss = pde_loss(u)
+        dloss = data_loss(u)
+        loss = ploss + dloss
+        loss.backward()
+        optim.step()
+
+        l = loss.item()
+        pde_losses.append(ploss.item())
+        data_losses.append(dloss.item())
+        losses.append(l)
+
+        if epoch % report_every == 0:
+            print(f"epoch {epoch:06d} loss {l:.4e}")
+
+    train_hist = {
+        'epoch': epochs,
+        'pde_loss': pde_losses,
+        'data_loss': data_losses,
+        'loss': losses
+    }
+
+    pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
+
+    # save snapshots
+
+    for i in range(nt):
+        u_ = u[:,:,i].detach().numpy()
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(u_, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
+        plt.savefig(os.path.join(out_dir, f"u-{i:06d}.png"))
+        plt.close(fig)
+
+
+
+if __name__ == '__main__':
+    main()
