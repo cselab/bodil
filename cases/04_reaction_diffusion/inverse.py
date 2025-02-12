@@ -15,8 +15,8 @@ def main():
 
     torch.set_default_dtype(torch.float32)
 
-    num_epochs = 10000
-    report_every = 500
+    num_epochs = 50000
+    report_every = 1000
     lr = 1e-3
 
     forward_dir = args.forward_dir
@@ -46,6 +46,8 @@ def main():
     dx = x[1] - x[0]
     dy = y[1] - y[0]
     X, Y = np.meshgrid(x, y)
+    X = torch.from_numpy(X)
+    Y = torch.from_numpy(Y)
 
     Dm0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=1)) / 2)[:,:,None]
     Dp0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=1)) / 2)[:,:,None]
@@ -54,7 +56,7 @@ def main():
 
     u = torch.zeros((ny, nx, nt))
     # initial guess
-    u.copy_(u_final[:,:,None])
+    #u.copy_(u_final[:,:,None])
 
     u.requires_grad = True
 
@@ -77,9 +79,22 @@ def main():
 
     def data_loss(u):
         residuals = u[:,:,-1] - u_final
-        return torch.mean(residuals**2)
+        return 10 * torch.mean(residuals**2)
 
-    optim = torch.optim.Adam([u], lr=lr)
+    def init_loss(u, x0, y0, R0):
+        u0 = u[:,:,0]
+        R = (1 + torch.tanh(R0)) / 2 * L/16
+        u0_guess = torch.exp(-((X-x0)**2 + (Y-y0)**2) / (2 * 0.0001 + (R**2)))
+        residuals = u0 - u0_guess
+        return 5 * torch.mean(residuals**2)
+
+    x0 = 2*L/3
+    y0 = L/3
+    R0 = L/32
+    init_params = torch.tensor([x0, y0, R0])
+    init_params.requires_grad = True
+
+    optim = torch.optim.Adam([u, init_params], lr=lr)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -90,7 +105,8 @@ def main():
         optim.zero_grad()
         ploss = pde_loss(u)
         dloss = data_loss(u)
-        loss = ploss + dloss
+        iloss = init_loss(u, *init_params)
+        loss = ploss + dloss + iloss
         loss.backward()
         optim.step()
 

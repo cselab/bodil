@@ -24,7 +24,7 @@ def main():
     ax.set_ylabel('loss')
     ax.legend()
     ax.set_yscale('log')
-    ax.set_ylim(np.min(pde_loss)/2, None)
+    ax.set_ylim(np.min([pde_loss[-1], data_loss[-1]])/2, None)
     plt.tight_layout()
     plt.show()
 

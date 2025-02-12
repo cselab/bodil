@@ -42,6 +42,15 @@ def main():
     u = np.where((X-2*L/3)**2 + (Y-L/3)**2 < (L/32)**2,
                  1.0, 0.0)
 
+    print(np.mean(u), np.pi * (L/32)**2 / L**2)
+    lapl = \
+        (np.roll(u, shift=+1, axis=1) + np.roll(u, shift=-1, axis=1) - 2 * u) / dx**2 + \
+        (np.roll(u, shift=+1, axis=0) + np.roll(u, shift=-1, axis=0) - 2 * u) / dy**2
+
+    print(np.mean(lapl**2))
+
+    exit(0)
+
     dt = 0.25 * min([dx, dy])**2 / max([Dg, Dw])
     t = 0
 
