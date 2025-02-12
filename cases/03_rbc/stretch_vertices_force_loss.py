@@ -89,11 +89,20 @@ def main():
         energy = compute_internal_energy() + compute_beads_energy()
         forces = torch.autograd.grad(-energy, inputs=vertices,
                                      create_graph=True, materialize_grads=True)[0]
-        #areas = compute_vertex_areas(faces, vertices)
-        loss = torch.sum(forces**2)
-        return energy, loss
+        fsm = torch.zeros_like(forces)
+        a = forces[faces[:,0]]
+        b = forces[faces[:,1]]
+        c = forces[faces[:,2]]
+        fsm.index_add_(dim=0, index=faces[:,1], source=a)
+        fsm.index_add_(dim=0, index=faces[:,2], source=a)
+        fsm.index_add_(dim=0, index=faces[:,0], source=b)
+        fsm.index_add_(dim=0, index=faces[:,2], source=b)
+        fsm.index_add_(dim=0, index=faces[:,0], source=c)
+        fsm.index_add_(dim=0, index=faces[:,1], source=c)
 
-    optim = Adam([vertices], lr=1e-3)
+        return energy, torch.sum(fsm**2) + torch.sum(forces**2)
+
+    optim = Adam([vertices], lr=1e-4)
 
     epochs = list(range(100001))
     flosses = []
@@ -129,7 +138,8 @@ def main():
     ax.set_xlabel('epoch')
     ax.set_ylabel('energy')
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig("a.png")
 
 
 if __name__ == '__main__':
