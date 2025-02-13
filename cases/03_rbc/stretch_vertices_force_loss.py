@@ -5,16 +5,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pint
 import torch
-from torch.optim import Adam
+import torch.optim
 
 from rbc import (extract_dihedrals,
                  compute_vertex_areas,
                  compute_area,
                  compute_volume,
                  compute_bending_energy,
-                 compute_shear_energy)
+                 compute_shear_energy,
+                 _compute_triangle_areas)
 
 def main():
+    torch.set_default_device('cuda')
     dtype = torch.float64
 
     subdivisions = 3
@@ -84,25 +86,31 @@ def main():
         Ebeads += torch.sum(+fmagn * x_l)
         return Ebeads
 
-    def compute_loss():
-
-        energy = compute_internal_energy() + compute_beads_energy()
-        forces = torch.autograd.grad(-energy, inputs=vertices,
-                                     create_graph=True, materialize_grads=True)[0]
-        fsm = torch.zeros_like(forces)
-        a = forces[faces[:,0]]
-        b = forces[faces[:,1]]
-        c = forces[faces[:,2]]
+    def smooth(f):
+        fsm = torch.zeros_like(f)
+        a = f[faces[:,0]] / 3
+        b = f[faces[:,1]] / 3
+        c = f[faces[:,2]] / 3
         fsm.index_add_(dim=0, index=faces[:,1], source=a)
         fsm.index_add_(dim=0, index=faces[:,2], source=a)
         fsm.index_add_(dim=0, index=faces[:,0], source=b)
         fsm.index_add_(dim=0, index=faces[:,2], source=b)
         fsm.index_add_(dim=0, index=faces[:,0], source=c)
         fsm.index_add_(dim=0, index=faces[:,1], source=c)
+        return fsm
 
-        return energy, torch.sum(fsm**2) + torch.sum(forces**2)
+    def compute_loss():
 
-    optim = Adam([vertices], lr=1e-4)
+        energy = compute_internal_energy() + compute_beads_energy()
+        forces = torch.autograd.grad(-energy, inputs=vertices,
+                                     create_graph=True, materialize_grads=True)[0]
+        fsm0 = smooth(forces)
+        fsm1 = smooth(fsm0)
+
+        areas = _compute_triangle_areas(faces, vertices)
+        return energy, torch.sum(forces**2) + torch.sum(areas**2)
+
+    optim = torch.optim.Adam([vertices], lr=1e-4)
 
     epochs = list(range(100001))
     flosses = []
