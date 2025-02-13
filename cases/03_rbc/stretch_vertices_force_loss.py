@@ -16,7 +16,8 @@ from rbc import (extract_dihedrals,
                  _compute_triangle_areas)
 
 def main():
-    torch.set_default_device('cuda')
+    if torch.cuda.is_available():
+        torch.set_default_device('cuda')
     dtype = torch.float64
 
     subdivisions = 3
@@ -26,9 +27,9 @@ def main():
     RA = dpdprops.equivalent_sphere_radius(area=mesh.area)
 
     dihedrals = extract_dihedrals(mesh.faces)
-    faces = torch.from_numpy(mesh.faces)
-    vertices = torch.from_numpy(mesh.vertices).to(dtype)
-    vertices0 = torch.from_numpy(mesh0.vertices).to(dtype)
+    faces = torch.from_numpy(mesh.faces).to(torch.get_default_device())
+    vertices = torch.from_numpy(mesh.vertices).to(dtype).to(torch.get_default_device())
+    vertices0 = torch.from_numpy(mesh0.vertices).to(dtype).to(torch.get_default_device())
     vertices.requires_grad = True
 
     ureg = pint.UnitRegistry()
@@ -131,7 +132,7 @@ def main():
             l = loss.item()
             print(f"epoch {epoch:06d} energy {e:.4e} loss {l:.4e}")
 
-            mesh.vertices = vertices.detach().numpy()
+            mesh.vertices = vertices.detach().cpu().numpy()
             mesh.export(f"stretch-{dump_id:06d}.ply")
             dump_id += 1
 
