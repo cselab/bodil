@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
     args = parser.parse_args()
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.set_default_dtype(torch.float32)
 
     num_epochs = 50000
@@ -31,7 +32,7 @@ def main():
         diff_field = np.load(f)
 
     with open(os.path.join(forward_dir, "u_final.npy"), "rb") as f:
-        u_final = torch.from_numpy(np.load(f))
+        u_final = torch.from_numpy(np.load(f)).to(device)
 
     ny, nx = u_final.shape
     assert diff_field.shape[0] == ny
@@ -49,15 +50,15 @@ def main():
     dx = x[1] - x[0]
     dy = y[1] - y[0]
     X, Y = np.meshgrid(x, y)
-    X = torch.from_numpy(X)
-    Y = torch.from_numpy(Y)
+    X = torch.from_numpy(X).to(device)
+    Y = torch.from_numpy(Y).to(device)
 
-    Dm0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=1)) / 2)[:,:,None]
-    Dp0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=1)) / 2)[:,:,None]
-    D0m = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=0)) / 2)[:,:,None]
-    D0p = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=0)) / 2)[:,:,None]
+    Dm0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=1)) / 2).to(device)[:,:,None]
+    Dp0 = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=1)) / 2).to(device)[:,:,None]
+    D0m = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=0)) / 2).to(device)[:,:,None]
+    D0p = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=0)) / 2).to(device)[:,:,None]
 
-    u = torch.zeros((ny, nx, nt))
+    u = torch.zeros((ny, nx, nt), device=device)
     # initial guess
     #u.copy_(u_final[:,:,None])
 
@@ -93,7 +94,7 @@ def main():
 
 
     R0 = L/32
-    init_params = torch.tensor([R0])
+    init_params = torch.tensor([R0]).to(device)
     init_params.requires_grad = True
 
     optim = torch.optim.Adam([u, init_params], lr=lr)
@@ -132,7 +133,7 @@ def main():
     # save snapshots
     if args.dump_snapshots:
         for i in range(nt):
-            u_ = u[:,:,i].detach().numpy()
+            u_ = u[:,:,i].detach().cpu().numpy()
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.imshow(u_, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
             plt.savefig(os.path.join(out_dir, f"u-{i:06d}.png"))
