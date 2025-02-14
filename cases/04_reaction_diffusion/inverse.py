@@ -11,6 +11,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
     parser.add_argument("--out-dir", type=str, default="out_inverse", help="output directory")
+    parser.add_argument("--initial-pos", type=float, nargs=2, default=[2/3, 1/3], help="position of initial tumor")
+    parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
     args = parser.parse_args()
 
     torch.set_default_dtype(torch.float32)
@@ -21,6 +23,7 @@ def main():
 
     forward_dir = args.forward_dir
     out_dir = args.out_dir
+    x0, y0 = args.initial_pos
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -88,10 +91,9 @@ def main():
         residuals = u0 - u0_guess
         return 5 * torch.mean(residuals**2)
 
-    x0 = 2*L/3
-    y0 = L/3
+
     R0 = L/32
-    init_params = torch.tensor([x0, y0, R0])
+    init_params = torch.tensor([R0])
     init_params.requires_grad = True
 
     optim = torch.optim.Adam([u, init_params], lr=lr)
@@ -105,7 +107,7 @@ def main():
         optim.zero_grad()
         ploss = pde_loss(u)
         dloss = data_loss(u)
-        iloss = init_loss(u, *init_params)
+        iloss = init_loss(u, x0, y0, *init_params)
         loss = ploss + dloss + iloss
         loss.backward()
         optim.step()
