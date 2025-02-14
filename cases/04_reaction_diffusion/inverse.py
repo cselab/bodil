@@ -130,14 +130,13 @@ def main():
     pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
 
     # save snapshots
-
-    for i in range(nt):
-        u_ = u[:,:,i].detach().numpy()
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.imshow(u_, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
-        plt.savefig(os.path.join(out_dir, f"u-{i:06d}.png"))
-        plt.close(fig)
+    if args.dump_snapshots:
+        for i in range(nt):
+            u_ = u[:,:,i].detach().numpy()
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.imshow(u_, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
+            plt.savefig(os.path.join(out_dir, f"u-{i:06d}.png"))
+            plt.close(fig)
 
 
 
