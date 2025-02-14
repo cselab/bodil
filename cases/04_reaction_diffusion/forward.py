@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -7,7 +8,13 @@ import os
 from random_field import generate_random_field
 
 def main():
-    out_dir = "out_forward"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out-dir", type=str, default="out_forward", help="output directory")
+    parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
+    args = parser.parse_args()
+
+    out_dir = args.out_dir
+    dump = args.dump_snapshots
     os.makedirs(out_dir, exist_ok=True)
     Dw = 0.005
     Dg = 0.1
@@ -28,10 +35,11 @@ def main():
     diff_field = generate_random_field(nx, ny, smoothness=nx/8, rng=rng).T
     diff_field = np.where(diff_field > 0, Dw, Dg)
 
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(diff_field, origin='lower', extent=[0, L, 0, L], vmin=Dw, vmax=Dg)
-    plt.savefig(os.path.join(out_dir, "diff_field.png"))
-    plt.close(fig)
+    if dump:
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(diff_field, origin='lower', extent=[0, L, 0, L], vmin=Dw, vmax=Dg)
+        plt.savefig(os.path.join(out_dir, "diff_field.png"))
+        plt.close(fig)
 
     with open(os.path.join(out_dir, "diff_field.npy"), "wb") as f:
         np.save(f, diff_field)
@@ -71,10 +79,11 @@ def main():
         iteration += 1
 
         if t >= next_tdump:
-            fig, ax = plt.subplots(figsize=(8, 8))
-            ax.imshow(u, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
-            plt.savefig(os.path.join(out_dir, f"u-{dump_id:06d}.png"))
-            plt.close(fig)
+            if dump:
+                fig, ax = plt.subplots(figsize=(8, 8))
+                ax.imshow(u, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
+                plt.savefig(os.path.join(out_dir, f"u-{dump_id:06d}.png"))
+                plt.close(fig)
             if dump_id % 10 == 0:
                 print(f"iteration {iteration:06d} (time {t:.4f})")
             next_tdump += t_every
