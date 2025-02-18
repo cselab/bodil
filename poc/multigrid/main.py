@@ -73,97 +73,8 @@ def interp_to_finer(u, loc=None, depth=1):
     return interp_to_finer(res, loc, depth - 1)
 
 
-
-def strided_convolution_nd(input_array, kernel, stride):
-    """
-    Perform strided convolution in n dimensions with 'VALID' padding.
-
-    Parameters:
-    input_array (np.ndarray): The input array of shape (D1, D2, ..., Dn)
-    kernel (np.ndarray): The kernel (filter) of shape (K1, K2, ..., Kn)
-    stride (tuple): The stride for each dimension (S1, S2, ..., Sn)
-
-    Returns:
-    np.ndarray: The result of the convolution.
-    """
-    # Ensure input validity
-    if len(input_array.shape) != len(kernel.shape) or len(stride) != len(input_array.shape):
-        raise ValueError("Input, kernel, and stride must have the same number of dimensions")
-
-    # Compute output shape for 'VALID' padding
-    output_shape = tuple(
-        (input_array.shape[i] - kernel.shape[i]) // stride[i] + 1 for i in range(len(input_array.shape))
-    )
-
-    # Initialize output array
-    output = np.zeros(output_shape, dtype=input_array.dtype)
-
-    # Iterate over output indices
-    for idx in product(*[range(s) for s in output_shape]):
-        # Compute the starting index for each dimension
-        start_idx = tuple(idx[i] * stride[i] for i in range(len(idx)))
-
-        # Extract sub-array and compute convolution
-        sub_array = input_array[
-            tuple(slice(start_idx[i], start_idx[i] + kernel.shape[i]) for i in range(len(start_idx)))
-        ]
-        output[idx] = np.sum(sub_array * kernel)
-
-    return output
-
-def restrict_to_coarser(u, loc=None, depth=1):
-    '''
-    Restricts a field to a coarser grid.
-
-    u: `array`
-        Input field.
-    loc: `str`
-        Location of value in cell, one character per direction.
-        'c': cell, new size `n // 2`;
-        'n': node, new size `(n - 1) // 2 + 1`;
-        '.': none, new size `n`.
-    method: `str`
-        Restriction method.
-        'conv': using the convolution
-    depth: `int`
-        Number of repetitions.
-    '''
-    if depth == 0:
-        return u
-
-    assert len(loc) == len(u.shape)
-    for l in loc:
-        assert l in 'cn.', "Invalid loc={}".format(loc)
-    dim = len(u.shape)
-
-    # Add padding depending on value location:
-    # 'c': no padding,
-    # 'n': linear extrapolation, combined with the [1,2,1] kernel
-    #      implements the identity condition on the boundaries
-    # '.': no padding.
-    pad_width = [(1, 1) if l == 'n' else (0, 0) for l in loc]
-    ur = np.pad(u, pad_width=pad_width, mode='reflect')
-    us = np.pad(u, pad_width=pad_width, mode='symmetric')
-    upad = 2 * us - ur
-
-
-    # Convolution weights.
-    wnode = np.array([1, 2, 1]) * 0.25
-    wcell = np.array([1, 1]) * 0.5
-    wnone = np.array([1.])
-    wloc = {'n': wnode, 'c': wcell, '.': wnone}
-    w = wloc[loc[0]]
-    for i in range(1, dim):
-        w = np.kron(wloc[loc[i]], w[..., None])
-    w = w.astype(u.dtype)
-    res = strided_convolution_nd(upad, kernel=w, stride=tuple([2] * dim))
-
-    return restrict_to_coarser(res, loc, depth - 1)
-
-
-
 def main():
-    nx = 8
+    nx = 5
     L = 2 * np.pi
 
     x = np.linspace(0, L, nx)
@@ -172,13 +83,9 @@ def main():
     uf = interp_to_finer(u, loc='n', depth=2)
     xf = np.linspace(0, L, len(uf))
 
-    uc = restrict_to_coarser(uf, loc='n', depth=2)
-    xc = np.linspace(0, L, len(uc))
-
     fig, ax = plt.subplots()
     ax.plot(x, u)
     ax.plot(xf, uf, 'o')
-    ax.plot(xc, uc, 'o')
     ax.set_xlabel(r'$x$')
     ax.set_ylabel(r'$u$')
     plt.show()
