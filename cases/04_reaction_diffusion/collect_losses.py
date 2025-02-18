@@ -21,9 +21,9 @@ def read_params(path):
 def compute_loss(path):
     df = pd.read_csv(os.path.join(path, 'train_history.csv'))
     loss = df['loss'].to_numpy()
-    #n = len(loss) // 10
-    #return np.mean(loss[-n:])
-    return loss.min()
+    n = len(loss) // 10
+    return np.mean(loss[-n:])
+    #return loss.min()
 
 def main():
     parser = argparse.ArgumentParser()
