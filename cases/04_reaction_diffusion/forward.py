@@ -26,8 +26,8 @@ def main():
     t_every = tend / 128
     rng = np.random.default_rng(seed=123456)
 
-    x = np.linspace(0, L, nx)
-    y = np.linspace(0, L, ny)
+    x = np.linspace(0, L, nx, endpoint=False)
+    y = np.linspace(0, L, ny, endpoint=False)
 
     dx = x[1] - x[0]
     dy = y[1] - y[0]

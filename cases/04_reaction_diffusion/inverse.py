@@ -7,6 +7,8 @@ import os
 import pandas as pd
 import torch
 
+from uq_odil.multigrid import MultigridField
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
@@ -18,8 +20,8 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.set_default_dtype(torch.float32)
 
-    num_epochs = 500000
-    report_every = 5000
+    num_epochs = 5000
+    report_every = 100
     lr = 5e-4
 
     forward_dir = args.forward_dir
@@ -41,11 +43,11 @@ def main():
     rho = 8
     L = 1.0
     tend = 1.0
-    nt = 128
+    nt = 129
     dt = tend / nt
 
-    x = np.linspace(0, L, nx)
-    y = np.linspace(0, L, ny)
+    x = np.linspace(0, L, nx, endpoint=False)
+    y = np.linspace(0, L, ny, endpoint=False)
 
     dx = x[1] - x[0]
     dy = y[1] - y[0]
@@ -58,11 +60,9 @@ def main():
     D0m = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=0)) / 2).to(device)[:,:,None]
     D0p = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=0)) / 2).to(device)[:,:,None]
 
-    u = torch.zeros((ny, nx, nt), device=device)
-    # initial guess
-    #u.copy_(u_final[:,:,None])
-
-    u.requires_grad = True
+    mg = MultigridField(torch.zeros((ny, nx, nt)), loc='ppn', depth=6)
+    mg.set_requires_grad()
+    mg.to(device)
 
     def pde_loss(u):
         um0 = torch.roll(u, shifts=+1, dims=1)
@@ -97,7 +97,7 @@ def main():
     init_params = torch.tensor([R0]).to(device)
     init_params.requires_grad = True
 
-    optim = torch.optim.Adam([u, init_params], lr=lr)
+    optim = torch.optim.Adam([init_params] + mg.params(), lr=lr)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -106,6 +106,7 @@ def main():
 
     for epoch in epochs:
         optim.zero_grad()
+        u = mg.get()
         ploss = pde_loss(u)
         dloss = data_loss(u)
         iloss = init_loss(u, x0, y0, *init_params)
@@ -133,6 +134,7 @@ def main():
     # save snapshots
     if args.dump_snapshots:
         for i in range(nt):
+            u = mg.get()
             u_ = u[:,:,i].detach().cpu().numpy()
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.imshow(u_, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)

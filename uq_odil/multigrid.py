@@ -52,6 +52,14 @@ class MultigridField:
                     shape[i] = s // 2
             self.mg.append(torch.zeros(tuple(shape), dtype=u.dtype))
 
+    def to(self, dst):
+        for i in range(len(self.mg)):
+            self.mg[i].to(dst)
+
+    def set_requires_grad(self, val=True):
+        for i in range(len(self.mg)):
+            self.mg[i].requires_grad = val
+
     def params(self):
         return self.mg
 
