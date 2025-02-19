@@ -20,9 +20,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.set_default_dtype(torch.float32)
 
-    num_epochs = 5000
+    num_epochs = 10000
     report_every = 100
-    lr = 5e-4
+    lr = 1e-4
 
     forward_dir = args.forward_dir
     out_dir = args.out_dir
