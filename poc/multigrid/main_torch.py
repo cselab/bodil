@@ -6,7 +6,7 @@ import torch
 
 def upscale_grid(u):
     dim = np.ndim(u)
-    new_shape = tuple(2 * s for s in u.shape)
+    new_shape = tuple(2 * s - 1 for s in u.shape)
     uf = torch.zeros(new_shape, dtype=u.dtype)
 
     # Copy original points
@@ -18,8 +18,7 @@ def upscale_grid(u):
         slices2 = tuple(slice(1, None, 2) if i == axis else slice(None) for i in range(dim))
         uf[slices2] = (uf[slices1] + torch.roll(uf[slices1], shifts=-1, dims=axis)) / 2
 
-    # Remove edges.
-    return uf[tuple([slice(0, -1)] * dim)]
+    return uf
 
 
 def main():
