@@ -61,8 +61,8 @@ def main():
     D0p = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=0)) / 2).to(device)[:,:,None]
 
     mg = MultigridField(torch.zeros((ny, nx, nt)), loc='ppn', depth=6)
-    mg.set_requires_grad()
     mg.to(device)
+    mg.set_requires_grad()
 
     def pde_loss(u):
         um0 = torch.roll(u, shifts=+1, dims=1)

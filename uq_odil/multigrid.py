@@ -15,7 +15,7 @@ def upscale_grid(u, loc):
             new_shape.append(2 * s)
     new_shape = tuple(new_shape)
 
-    uf = torch.zeros(new_shape, dtype=u.dtype)
+    uf = torch.zeros(new_shape, dtype=u.dtype, device=u.get_device())
 
     uf[tuple([slice(None, None, 2)] * dim)] = u
 
@@ -54,7 +54,7 @@ class MultigridField:
 
     def to(self, dst):
         for i in range(len(self.mg)):
-            self.mg[i].to(dst)
+            self.mg[i] = self.mg[i].to(dst)
 
     def set_requires_grad(self, val=True):
         for i in range(len(self.mg)):
