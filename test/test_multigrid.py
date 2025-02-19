@@ -22,7 +22,7 @@ def main():
 
     u_ = mg.get()
 
-    print(torch.mean((u - u_)**2))
+    print(f"reconstruction error: {torch.mean((u - u_)**2).item()}")
 
 
 
