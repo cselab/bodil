@@ -55,6 +55,7 @@ def main():
     ax.set_xlabel(r'$x_0$')
     ax.set_ylabel('ODIL loss')
     ax.set_yscale('log')
+    plt.tight_layout()
     plt.show()
 
 
