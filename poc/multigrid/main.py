@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def upscale_grid(u):
+def upscale_grid_nodes(u):
     dim = np.ndim(u)
     new_shape = tuple(2 * s - 1 for s in u.shape)
     uf = np.zeros(new_shape, dtype=u.dtype)
@@ -13,9 +13,10 @@ def upscale_grid(u):
 
     # Interpolate along each axis
     for axis in range(dim):
-        slices1 = tuple(slice(None, -1, 2) if i == axis else slice(None) for i in range(dim))
-        slices2 = tuple(slice(1, None, 2) if i == axis else slice(None) for i in range(dim))
-        uf[slices2] = (uf[slices1] + np.roll(uf[slices1], shift=-1, axis=axis)) / 2
+        slices_l = tuple(slice(None, -2, 2) if i == axis else slice(None) for i in range(dim))
+        slices_r = tuple(slice(2, None, 2) if i == axis else slice(None) for i in range(dim))
+        slices_mid = tuple(slice(1, -1, 2) if i == axis else slice(None) for i in range(dim))
+        uf[slices_mid] = (uf[slices_l] + uf[slices_r]) / 2
 
     return uf
 
@@ -25,9 +26,9 @@ def main():
     L = 2 * np.pi
 
     x = np.linspace(0, L, nx)
-    u = np.sin(x)
+    u = np.sin(x) + x
 
-    uf = upscale_grid(upscale_grid(u))
+    uf = upscale_grid_nodes(upscale_grid_nodes(u))
     xf = np.linspace(0, L, len(uf))
 
     fig, ax = plt.subplots()

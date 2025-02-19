@@ -8,18 +8,13 @@ def upscale_grid(u):
     dim = np.ndim(u)
     new_shape = tuple(2 * s - 1 for s in u.shape)
     uf = torch.zeros(new_shape, dtype=u.dtype)
-
-    # Copy original points
     uf[tuple([slice(None, None, 2)] * dim)] = u
-
-    # Interpolate along each axis
     for axis in range(dim):
-        slices1 = tuple(slice(None, -1, 2) if i == axis else slice(None) for i in range(dim))
-        slices2 = tuple(slice(1, None, 2) if i == axis else slice(None) for i in range(dim))
-        uf[slices2] = (uf[slices1] + torch.roll(uf[slices1], shifts=-1, dims=axis)) / 2
-
+        slices_l = tuple(slice(None, -2, 2) if i == axis else slice(None) for i in range(dim))
+        slices_r = tuple(slice(2, None, 2) if i == axis else slice(None) for i in range(dim))
+        slices_mid = tuple(slice(1, -1, 2) if i == axis else slice(None) for i in range(dim))
+        uf[slices_mid] = (uf[slices_l] + uf[slices_r]) / 2
     return uf
-
 
 def create_mg(u, depth):
     shape = np.array((np.shape(u)), dtype=int)
@@ -32,14 +27,12 @@ def create_mg(u, depth):
         mg.append(torch.zeros(tuple(shape), dtype=u.dtype, requires_grad=u.requires_grad, device=u.device))
     return mg
 
-
 def mg_to_field(mg):
     depth = len(mg)
     u = mg[-1]
     for subu in mg[-2::-1]:
         u = upscale_grid(u) + subu
     return u
-
 
 def ODIL_train(nx=129, num_epochs=100000, lr=5e-3, depth=1):
     L = 1
@@ -85,11 +78,8 @@ def ODIL_train(nx=129, num_epochs=100000, lr=5e-3, depth=1):
 
     return epochs, errors
 
-
 def main():
-
     fig, ax = plt.subplots()
-
     for depth in [1, 3, 5, 7]:
         print(f"depth {depth}")
         epochs, err = ODIL_train(depth=depth)

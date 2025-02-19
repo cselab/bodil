@@ -4,20 +4,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-def upscale_grid(u):
+def upscale_grid_nodes(u):
     dim = np.ndim(u)
     new_shape = tuple(2 * s - 1 for s in u.shape)
     uf = torch.zeros(new_shape, dtype=u.dtype)
-
-    # Copy original points
     uf[tuple([slice(None, None, 2)] * dim)] = u
-
-    # Interpolate along each axis
     for axis in range(dim):
-        slices1 = tuple(slice(None, -1, 2) if i == axis else slice(None) for i in range(dim))
-        slices2 = tuple(slice(1, None, 2) if i == axis else slice(None) for i in range(dim))
-        uf[slices2] = (uf[slices1] + torch.roll(uf[slices1], shifts=-1, dims=axis)) / 2
-
+        slices_l = tuple(slice(None, -2, 2) if i == axis else slice(None) for i in range(dim))
+        slices_r = tuple(slice(2, None, 2) if i == axis else slice(None) for i in range(dim))
+        slices_mid = tuple(slice(1, -1, 2) if i == axis else slice(None) for i in range(dim))
+        uf[slices_mid] = (uf[slices_l] + uf[slices_r]) / 2
     return uf
 
 
@@ -26,9 +22,9 @@ def main():
     L = 2 * np.pi
 
     x = torch.linspace(0, L, nx)
-    u = torch.sin(x)
+    u = torch.sin(x) + x
 
-    uf = upscale_grid(upscale_grid(u))
+    uf = upscale_grid_nodes(upscale_grid_nodes(u))
     xf = torch.linspace(0, L, len(uf))
 
     fig, ax = plt.subplots()
