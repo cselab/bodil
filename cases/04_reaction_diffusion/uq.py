@@ -8,7 +8,7 @@ import pandas as pd
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('csv', type=str, help='csv files that contains losses against parameter x0')
-    parser.add_argument('--beta', type=float, default=3e4, help='inverse "temperature"')
+    parser.add_argument('--beta', type=float, default=2e4, help='inverse "temperature"')
     args = parser.parse_args()
 
     csv_path = args.csv
