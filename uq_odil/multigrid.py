@@ -40,7 +40,7 @@ class MultigridField:
         shape = np.array((np.shape(u)), dtype=int)
         self.mg = [u.clone()]
         for d in range(depth):
-            for i, l in enumerate(l):
+            for i, l in enumerate(loc):
                 s = shape[i]
                 if l == 'n':
                     assert (s+1) % 2 == 0
