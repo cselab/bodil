@@ -28,6 +28,7 @@ def compute_loss(path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_inverse_paths', type=str, nargs='+', help='paths of output directories of inverse.py')
+    parser.add_argument('--out-csv', type=str, default='losses.csv', help='output csv')
     args = parser.parse_args()
 
     paths = args.out_inverse_paths
@@ -49,6 +50,12 @@ def main():
     idx = np.argsort(x0)
     x0 = x0[idx]
     losses = losses[idx]
+
+    data = {
+        'x0': x0,
+        'ODIL_loss': losses
+    }
+    pd.DataFrame(data).to_csv(args.out_csv, index=False)
 
     fig, ax = plt.subplots()
     ax.plot(x0, losses, '-o')

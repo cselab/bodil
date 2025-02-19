@@ -21,7 +21,7 @@ def main():
     torch.set_default_dtype(torch.float32)
 
     num_epochs = 10000
-    report_every = 100
+    report_every = 500
     lr = 1e-4
 
     forward_dir = args.forward_dir
