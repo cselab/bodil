@@ -80,6 +80,7 @@ def ODIL_train(nx=129, num_epochs=100000, lr=5e-3, depth=1):
 
 def main():
     fig, ax = plt.subplots()
+    torch.manual_seed(0)
     for depth in [1, 3, 5, 7]:
         print(f"depth {depth}")
         epochs, err = ODIL_train(depth=depth)
