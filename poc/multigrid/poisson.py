@@ -41,35 +41,34 @@ def mg_to_field(mg):
     return u
 
 
-def ODIL_train(nx=129, num_epochs=100000, lr=1e-3, depth=1):
-    L = 2 * np.pi
+def ODIL_train(nx=129, num_epochs=100000, lr=5e-3, depth=1):
+    L = 1
     dx = L / nx
 
     x = torch.linspace(0, L, nx)
     u = torch.zeros_like(x)
+    uexact = x * (1-x) / 2
 
     mg = create_mg(u, depth)
     for i in range(len(mg)):
         mg[i].requires_grad=True
 
     epochs = list(range(num_epochs))
-    losses = []
-    optim = torch.optim.Adam(mg, lr=1e-3)
+    errors = []
+    optim = torch.optim.Adam(mg, lr=lr)
 
     def odil_loss(u):
         # bulk
-        d2udx2 = (2 * u[1:-1] - u[:-2] - u[2:]) / (dx**2)
-        residuals = d2udx2
+        d2udx2 = (u[:-2] - 2 * u[1:-1] + u[2:]) / (dx**2)
+        residuals = d2udx2 + 1
         loss = torch.mean(residuals**2)
-
         # BC
-        dudxl = (u[1] - u[0]) / dx
-        dudxr = (u[-1] - u[-2]) / dx
-        loss += (dudxl - 1)**2
-        loss += (dudxr + 1)**2
         loss += u[0]**2
-
+        loss += u[-1]**2
         return loss
+
+    def error(u):
+        return torch.mean((u - uexact)**2).item()
 
     for epoch in epochs:
         optim.zero_grad()
@@ -77,24 +76,26 @@ def ODIL_train(nx=129, num_epochs=100000, lr=1e-3, depth=1):
         loss = odil_loss(u)
         loss.backward()
         optim.step()
-        losses.append(loss.item())
+
+        e = error(u)
+        errors.append(e)
 
         if epoch % 10000 == 0:
-            print(f"epoch {epoch:05d} loss {loss.item():.4e}")
+            print(f"epoch {epoch:05d} error {e:.4e}")
 
-    return epochs, losses
+    return epochs, errors
 
 
 def main():
 
     fig, ax = plt.subplots()
 
-    for depth in range(8):
+    for depth in [1, 3, 5, 7]:
         print(f"depth {depth}")
-        epochs, losses = ODIL_train(depth=depth)
-        ax.plot(epochs, losses, label=f"depth = {depth}")
+        epochs, err = ODIL_train(depth=depth)
+        ax.plot(epochs, err, label=f"depth = {depth}")
     ax.set_xlabel('epoch')
-    ax.set_ylabel('loss')
+    ax.set_ylabel('error')
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim(1,None)
