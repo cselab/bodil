@@ -15,13 +15,15 @@ def main():
     beta = args.beta
 
     df = pd.read_csv(csv_path)
+    df.sort_values(by='x0', inplace=True)
     x0 = df['x0'].to_numpy()
     ODIL_loss = df['ODIL_loss'].to_numpy()
 
     dx = x0[1] - x0[0]
 
     p = np.exp(-beta * ODIL_loss)
-    p /= np.sum(p * dx)
+    norm = np.sum((p[1:] + p[:-1]) / 2 * np.diff(x0))
+    p /= norm
 
     fig, ax = plt.subplots()
     ax.bar(x0, p, width=dx)
