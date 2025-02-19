@@ -4,6 +4,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.interpolate import CubicSpline
 
 def main():
     parser = argparse.ArgumentParser()
@@ -19,14 +20,16 @@ def main():
     x0 = df['x0'].to_numpy()
     ODIL_loss = df['ODIL_loss'].to_numpy()
 
-    dx = x0[1] - x0[0]
+    f = CubicSpline(x0, ODIL_loss, bc_type='natural')
+    x = np.linspace(x0.min(), x0.max(), 1024)
+    y = f(x)
 
-    p = np.exp(-beta * ODIL_loss)
-    norm = np.sum((p[1:] + p[:-1]) / 2 * np.diff(x0))
+    p = np.exp(-beta * y)
+    norm = np.sum((p[1:] + p[:-1]) / 2 * np.diff(x))
     p /= norm
 
     fig, ax = plt.subplots()
-    ax.bar(x0, p, width=dx)
+    ax.plot(x, p)
     ax.set_xlabel(r'$x_0$')
     ax.set_ylabel(r'$p(x_0 | D)$')
     ax.set_xlim(0, 1)
