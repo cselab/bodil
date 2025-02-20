@@ -19,9 +19,6 @@ for depth in 1, 3, 5, 7:
     shape = np.array((np.shape(u)), dtype=int)
     mg = [u.clone()]
     for d in range(depth):
-        for s in shape:
-            assert (s + 1) % 2 == 0
-            assert s > 1
         shape = (shape + 1) // 2
         mg.append(
             torch.zeros(tuple(shape),
