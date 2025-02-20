@@ -56,6 +56,9 @@ def main():
     x, t, uexact = exact_solution(nx=nx, nt=nt, D=D, L=L, T=T)
     xd, td, ud = generate_data(num_data=num_data, nx=nx, nt=nt, D=D, L=L, T=T, rng=rng, sigma=sigma_data)
 
+    with open("laplace_uexact.npy", "wb") as f:
+        np.save(f, uexact.T)
+
     dx = x[1] - x[0]
     dt = t[1] - t[0]
 
@@ -146,6 +149,9 @@ def main():
     umean = np.mean(samples, axis=1).reshape(ushape)
     ulo = np.quantile(samples, q=0.05, axis=1).reshape(ushape)
     uhi = np.quantile(samples, q=0.95, axis=1).reshape(ushape)
+
+    with open("laplace_uspread.npy", "wb") as f:
+        np.save(f, (uhi - ulo).T)
 
     for tid in [0, 8, 16, 32]:
 
