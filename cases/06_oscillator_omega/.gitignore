@@ -1,0 +1,9 @@
+laplace_data.csv
+laplace_cov.npy
+laplace_pred.csv
+laplace_omega.csv
+hmc_data.csv
+hmc_cov.npy
+hmc_pred.csv
+hmc_omega.csv
+profile_omega.csv
