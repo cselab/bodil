@@ -13,7 +13,7 @@ def main():
     args = parser.parse_args()
 
     df = pd.read_csv(args.hmc)
-    omegas = df['omega'].to_numpy()[-10000:]
+    omegas = df['omega'].to_numpy()
 
     df = pd.read_csv(args.lap)
     mul = df['omega_mean'][0]
