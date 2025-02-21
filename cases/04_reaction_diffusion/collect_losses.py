@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -34,6 +35,7 @@ def main():
     paths = args.out_inverse_paths
 
     x0 = []
+    y0 = []
     losses = []
     for path in paths:
         try:
@@ -43,27 +45,44 @@ def main():
             pass
         else:
             x0.append(p['x0'])
+            y0.append(p['y0'])
             losses.append(l)
 
     x0 = np.array(x0)
+    y0 = np.array(y0)
     losses = np.array(losses)
-    idx = np.argsort(x0)
-    x0 = x0[idx]
-    losses = losses[idx]
 
     data = {
         'x0': x0,
+        'y0': y0,
         'ODIL_loss': losses
     }
     pd.DataFrame(data).to_csv(args.out_csv, index=False)
 
-    fig, ax = plt.subplots()
-    ax.plot(x0, losses, '-o')
-    ax.set_xlabel(r'$x_0$')
-    ax.set_ylabel('ODIL loss')
-    ax.set_yscale('log')
-    plt.tight_layout()
-    plt.show()
+    if len(np.unique(y0)) == 1:
+        fig, ax = plt.subplots()
+        ax.plot(x0, losses, '-o')
+        ax.set_xlabel(r'$x_0$')
+        ax.set_ylabel('ODIL loss')
+        ax.set_yscale('log')
+        plt.tight_layout()
+        plt.show()
+        plt.close()
+    else:
+        fig, ax = plt.subplots()
+        sc = ax.scatter(x0, y0, c=losses,
+                        #norm=matplotlib.colors.LogNorm(vmin=1e-5, vmax=1e-3))
+                        norm=matplotlib.colors.LogNorm())
+        plt.colorbar(sc, ax=ax)
+        ax.set_xlabel(r'$x_0$')
+        ax.set_ylabel(r'$y_0$')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_aspect('equal')
+        plt.tight_layout()
+        plt.show()
+        plt.close()
+
 
 
 
