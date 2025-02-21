@@ -17,7 +17,7 @@ def generate_data(num_data, T, omega, x0, v0, rng, sigma):
         rng: numpy random number generator
         sigma: noise level
     """
-    t = rng.uniform(0, T/4, num_data)
+    t = rng.uniform(0, T/2, num_data)
     x = v0 / omega * np.sin(omega * t) + x0 * np.cos(omega * t) + rng.normal(0, sigma, num_data)
     return t, x
 
@@ -36,7 +36,7 @@ def main():
     num_epochs = 5000
     num_samples = 10000
     lr = 1e-3
-    num_data = 10
+    num_data = 20
     sigma_data = 0.1
     beta = 1e4
     rng = np.random.default_rng(seed=seed)
@@ -96,12 +96,10 @@ def main():
     v = y[nt+1:]
 
     H = H.detach().numpy()
-    Hx = H[:nt+1,:nt+1]
-
 
     cov = np.linalg.inv(H)
     fig, ax = plt.subplots()
-    im = ax.imshow(cov, origin='lower', cmap="Reds")
+    im = ax.imshow(cov, origin='lower', cmap="seismic")
     fig.colorbar(im, ax=ax)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
