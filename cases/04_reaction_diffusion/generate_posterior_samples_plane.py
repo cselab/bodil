@@ -6,6 +6,28 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import RBFInterpolator
 
+def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.075, seed=239486):
+    rng = np.random.default_rng(seed)
+    x = x0.copy()
+    p = posterior(x0)
+    samples = []
+    accepted = 0
+    for k in range(num_samples):
+        xp = rng.normal(x, sigma)
+        xp = np.maximum(xmin, np.minimum(xmax, xp))
+        pp = posterior(xp)
+        u = rng.uniform()
+        a = pp / p
+        if u <= a:
+            x = xp
+            p = pp
+            accepted += 1
+        samples.append(x)
+    arate = accepted / num_samples
+    print(f"acceptance rate {arate}")
+    return np.array(samples)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('csv', type=str, help='csv files that contains losses against parameter x0')
@@ -54,9 +76,17 @@ def main():
     norm = np.sum(p[:-1,:-1] + p[1:,:-1] + p[1:,1:]) * dx * dy / 4
     p /= norm
 
-    fig, ax = plt.subplots()
+    def posterior(x):
+        l = interp(x.reshape((-1,2)))
+        p = np.exp(-beta * l) / norm
+        return p
 
+    samples = generate_samples_MCMC(posterior, np.array([2/3, 1/3]), num_samples=1000,
+                                    xmin=[np.min(x0), np.min(y0)], xmax=[np.max(x0), np.max(y0)])
+
+    fig, ax = plt.subplots()
     ax.contourf(X, Y, p, levels=100)
+    ax.plot(samples[:,0], samples[:,1], '+r')
     ax.set_xlabel(r'$x_0$')
     ax.set_ylabel(r'$y_0$')
     ax.set_xlim(0, 1)
