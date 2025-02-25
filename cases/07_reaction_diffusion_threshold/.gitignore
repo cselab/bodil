@@ -1,2 +1,3 @@
 *.npy
 *.png
+train_history.csv
