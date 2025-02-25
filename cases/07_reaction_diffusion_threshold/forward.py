@@ -96,6 +96,9 @@ def main():
     with open(os.path.join(out_dir, "ut_final.npy"), "wb") as f:
         np.save(f, ut)
 
+    with open(os.path.join(out_dir, "u_final.npy"), "wb") as f:
+        np.save(f, u)
+
 
 if __name__ == '__main__':
     main()
