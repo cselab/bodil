@@ -30,5 +30,10 @@ Predict concentrations from posteriors:
 mpirun -n 8 ./run_samples.py results/samples.csv 
 ```
 
+Plot uncertainties in level sets
+```
+./extract_uq_levelsets.py out_samples/*
+```
+
 
 

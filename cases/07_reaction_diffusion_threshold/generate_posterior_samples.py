@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import RBFInterpolator
 
-def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.015, seed=239486):
+def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.01, seed=239486):
     rng = np.random.default_rng(seed)
     x = x0.copy()
     p = posterior(x0)
