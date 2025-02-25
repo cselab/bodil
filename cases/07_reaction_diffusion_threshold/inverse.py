@@ -9,26 +9,14 @@ import torch
 
 from uq_odil.multigrid import MultigridField
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
-    parser.add_argument("--out-dir", type=str, default="out_inverse", help="output directory")
-    parser.add_argument("--initial-pos", type=float, nargs=2, default=[2/3, 1/3], help="position of initial tumor")
-    parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
-    parser.add_argument("--threshold", type=float, default=0.7, help="Measurement threshold.")
-    args = parser.parse_args()
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
     torch.set_default_dtype(torch.float32)
 
     num_epochs = 10000
     report_every = 500
     lr = 1e-4
 
-    forward_dir = args.forward_dir
-    out_dir = args.out_dir
-    x0, y0 = args.initial_pos
-    threshold = args.threshold
+    x0, y0 = initial_pos
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -134,16 +122,38 @@ def main():
 
     pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
 
+    u = mg.get()
+
+    with open(os.path.join(out_dir, "u_final.npy"), "wb") as f:
+        np.save(f, u[:,:,-1].detach().cpu().numpy())
+
     # save snapshots
-    if args.dump_snapshots:
+    if dump_snapshots:
         for i in range(nt):
-            u = mg.get()
             u_ = u[:,:,i].detach().cpu().numpy()
             fig, ax = plt.subplots(figsize=(8, 8))
             ax.imshow(u_, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
             plt.savefig(os.path.join(out_dir, f"u-{i:06d}.png"))
             plt.close(fig)
 
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
+    parser.add_argument("--out-dir", type=str, default="out_inverse", help="output directory")
+    parser.add_argument("--initial-pos", type=float, nargs=2, default=[2/3, 1/3], help="position of initial tumor")
+    parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
+    parser.add_argument("--threshold", type=float, default=0.7, help="Measurement threshold.")
+    args = parser.parse_args()
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    run(forward_dir=args.forward_dir,
+        out_dir=args.out_dir,
+        initial_pos=args.initial_pos,
+        dump_snapshots=args.dump_snapshots,
+        threshold=args.threshold,
+        device=device)
 
 
 if __name__ == '__main__':
