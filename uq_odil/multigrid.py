@@ -15,7 +15,7 @@ def upscale_grid(u, loc):
             new_shape.append(2 * s)
     new_shape = tuple(new_shape)
 
-    uf = torch.zeros(new_shape, dtype=u.dtype, device=u.get_device())
+    uf = torch.zeros(new_shape, dtype=u.dtype)
 
     uf[tuple([slice(None, None, 2)] * dim)] = u
 
