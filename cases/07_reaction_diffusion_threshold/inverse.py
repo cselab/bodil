@@ -82,17 +82,14 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
 
     def init_loss(u, x0, y0, R0):
         u0 = u[:,:,0]
-        R = (1 + torch.tanh(R0)) / 2 * L/16
-        u0_guess = torch.exp(-((X-x0)**2 + (Y-y0)**2) / (2 * 0.0001 + (R**2)))
+        u0_guess = torch.exp(-((X-x0)**2 + (Y-y0)**2) / (2 * R0**2))
         residuals = u0 - u0_guess
         return 5 * torch.mean(residuals**2)
 
 
     R0 = L/32
-    init_params = torch.tensor([R0]).to(device)
-    init_params.requires_grad = True
 
-    optim = torch.optim.Adam([init_params] + mg.params(), lr=lr)
+    optim = torch.optim.Adam(mg.params(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=10, min_lr=1e-4)
 
     epochs = list(range(num_epochs))
@@ -105,7 +102,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
         u = mg.get()
         ploss = pde_loss(u)
         dloss = data_loss(u)
-        iloss = init_loss(u, x0, y0, *init_params)
+        iloss = init_loss(u, x0, y0, R0)
         loss = ploss + dloss + iloss
         loss.backward()
         optim.step()

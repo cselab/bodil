@@ -49,8 +49,10 @@ def main():
     X, Y = np.meshgrid(x, y)
 
     # initial conditions
-    u = np.where((X-2*L/3)**2 + (Y-L/3)**2 < (L/32)**2,
-                 1.0, 0.0)
+    R0 = L/32
+    x0 = 2 * L / 3
+    y0 = L / 3
+    u = np.exp(-((X-x0)**2 + (Y-y0)**2) / (2 * R0**2))
 
     dt = 0.25 * min([dx, dy])**2 / max([Dg, Dw])
     t = 0
