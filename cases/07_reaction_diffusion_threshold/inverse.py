@@ -12,8 +12,8 @@ from uq_odil.multigrid import MultigridField
 def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
     torch.set_default_dtype(torch.float32)
 
-    num_epochs = 10000
-    report_every = 500
+    num_epochs = 15000
+    report_every = 1000
     lr = 1e-4
 
     x0, y0 = initial_pos
@@ -50,7 +50,11 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
     D0m = torch.from_numpy((diff_field + np.roll(diff_field, shift=+1, axis=0)) / 2).to(device)[:,:,None]
     D0p = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=0)) / 2).to(device)[:,:,None]
 
-    mg = MultigridField(torch.zeros((ny, nx, nt)), loc='ppn', depth=6)
+    # initial guess
+    u0 = torch.zeros((ny, nx, nt))
+    u0[:,:,-1] = ut_final
+
+    mg = MultigridField(u0, loc='ppn', depth=6)
     mg.to(device)
     mg.set_requires_grad()
 
