@@ -12,9 +12,9 @@ from uq_odil.multigrid import MultigridField
 def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
     torch.set_default_dtype(torch.float32)
 
-    num_epochs = 15000
-    report_every = 1000
-    lr = 1e-4
+    num_epochs = 20000
+    report_every = 2000
+    lr = 1e-3
 
     x0, y0 = initial_pos
 
@@ -93,6 +93,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
     init_params.requires_grad = True
 
     optim = torch.optim.Adam([init_params] + mg.params(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=10, min_lr=1e-4)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -114,8 +115,10 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
         data_losses.append(dloss.item())
         losses.append(l)
 
+        scheduler.step(l)
+
         if epoch % report_every == 0:
-            print(f"epoch {epoch:06d} loss {l:.4e}")
+            print(f"epoch {epoch:06d} loss {l:.4e} lr {scheduler.get_last_lr()}")
 
     train_hist = {
         'epoch': epochs,
