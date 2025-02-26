@@ -32,7 +32,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
 
     rho = 8
     L = 1.0
-    tend = 0.8
+    tend = 0.5
     nt = 129
     dt = tend / nt
 
@@ -147,7 +147,7 @@ def main():
     parser.add_argument("--out-dir", type=str, default="out_inverse", help="output directory")
     parser.add_argument("--initial-pos", type=float, nargs=2, default=[2/3, 1/3], help="position of initial tumor")
     parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
-    parser.add_argument("--threshold", type=float, default=0.7, help="Measurement threshold.")
+    parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

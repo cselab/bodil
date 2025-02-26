@@ -12,7 +12,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
     parser.add_argument("--base-out-dir", type=str, default="out_plane", help="base output directory")
-    parser.add_argument("--threshold", type=float, default=0.7, help="Measurement threshold.")
+    parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
     args = parser.parse_args()
 
     forward_dir = args.forward_dir

@@ -14,7 +14,7 @@ def main():
     parser.add_argument("samples_csv", type=str, help="csv files that contain samples of (x0, y0)")
     parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
     parser.add_argument("--base-out-dir", type=str, default="out_samples", help="base output directory")
-    parser.add_argument("--threshold", type=float, default=0.7, help="Measurement threshold.")
+    parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
     args = parser.parse_args()
 
     samples_csv = args.samples_csv

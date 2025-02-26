@@ -11,7 +11,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", type=str, default="out_forward", help="output directory")
     parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
-    parser.add_argument("--threshold", type=float, default=0.7, help="Measurement threshold.")
+    parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
     args = parser.parse_args()
 
     threshold = args.threshold
@@ -24,7 +24,7 @@ def main():
     L = 1.0
     nx = 64
     ny = 64
-    tend = 0.8
+    tend = 0.5
     t_every = tend / 128
     rng = np.random.default_rng(seed=123456)
 
