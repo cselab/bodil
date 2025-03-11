@@ -84,9 +84,9 @@ def main():
 
         if t >= next_tdump:
             if dump:
-                ut = np.where(u > threshold, 1.0, 0.0)
+                #ut = np.where(u > threshold, 1.0, 0.0)
                 fig, ax = plt.subplots(figsize=(8, 8))
-                ax.imshow(ut, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
+                ax.imshow(u, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
                 plt.savefig(os.path.join(out_dir, f"u-{dump_id:06d}.png"))
                 plt.close(fig)
             if dump_id % 10 == 0:
