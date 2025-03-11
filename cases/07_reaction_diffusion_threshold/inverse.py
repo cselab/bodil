@@ -76,7 +76,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
         return torch.mean(residuals**2)
 
     def data_loss(u):
-        utf = (1 + torch.tanh((u[:,:,-1] - threshold) / 0.01)) / 2
+        utf = (1 + torch.tanh((u[:,:,-1] - threshold) / 0.0001)) / 2
         residuals = utf - ut_final
         return 10 * torch.mean(residuals**2)
 
