@@ -26,5 +26,6 @@ propagate() {
         --out-contours results/contours_sigma_${sigma}.pkl
 }
 
+propagate 0.01 0.001
 propagate 0.05 0.007
 propagate 0.10 0.015
