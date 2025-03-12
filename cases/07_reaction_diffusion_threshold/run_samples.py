@@ -42,7 +42,7 @@ def main():
     for i in range(start, end):
         x0 = X[i]
         y0 = Y[i]
-        out_dir = os.path.join(base_dir, f"x0_{x0:.5f}_y0_{y0:.5f}")
+        out_dir = os.path.join(base_dir, f"sample_{i:06d}_x0_{x0:.5f}_y0_{y0:.5f}")
         run(forward_dir=forward_dir,
             out_dir=out_dir,
             initial_pos=[x0, y0],
