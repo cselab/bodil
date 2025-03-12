@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import RBFInterpolator
 
-def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.01, seed=239486):
+def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.015, seed=239486):
     rng = np.random.default_rng(seed)
     x = x0.copy()
     p = posterior(x0)
@@ -30,7 +30,8 @@ def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.01, se
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('csv', type=str, help='csv files that contains losses against parameter x0')
-    parser.add_argument('--sigma', type=float, default=0.05, help='data measurements error')
+    parser.add_argument('--sigma', type=float, default=0.1, help='data measurements error')
+    parser.add_argument('--sigma-MCMC', type=float, default=0.015, help='std of proposal distribution in MCMC')
     parser.add_argument('--nsamples', type=int, default=1000, help='number of samples to generate')
     parser.add_argument('--out-csv', type=str, default="samples.csv", help='output path to dump generated samples')
     parser.add_argument('--show-plot', action='store_true', default=False, help='show plot')
@@ -82,8 +83,9 @@ def main():
         p = np.exp(-beta * l) / norm
         return p
 
-    samples = generate_samples_MCMC(posterior, np.array([2/3, 1/3]), num_samples=1000,
-                                    xmin=[np.min(x0), np.min(y0)], xmax=[np.max(x0), np.max(y0)])
+    samples = generate_samples_MCMC(posterior, np.array([2/3, 1/3]), num_samples=nsamples,
+                                    xmin=[np.min(x0), np.min(y0)], xmax=[np.max(x0), np.max(y0)],
+                                    sigma=args.sigma_MCMC)
 
     data = {
         'x0': samples[:,0],

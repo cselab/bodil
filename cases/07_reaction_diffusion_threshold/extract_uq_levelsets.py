@@ -14,7 +14,7 @@ def main():
     args = parser.parse_args()
 
     ground_truth_path = args.ground_truth
-    levels=[0.5, 0.6, 0.7, 0.8]
+    levels=[0.1, 0.3, 0.5, 0.6]
     L = 1
     paths = args.sample_paths
 
@@ -54,23 +54,14 @@ def main():
                               colors='k',
                               linewidths=1,
                               linestyles='--')
-            print(u.min(), u.max())
 
     # add fake data for legend
     for i, l in enumerate(levels):
         ax.plot([], [], '-', c=f"C{i}", label=fr"$u(x, y) = {l}$")
+    if ground_truth_path:
+        ax.plot([], [], '--k', label="ground truth")
 
-    ax.legend()
-    #cb = fig.colorbar(cont, ax=ax)
-
-    # make colorbar lines thicker so we can see the colors
-    # see https://stackoverflow.com/a/19372610
-    # lw = 2
-    # for c in cb.ax.get_children():
-    #     if isinstance(c, matplotlib.collections.LineCollection):
-    #         num_lines = len(c.get_linewidths())
-    #         if num_lines == len(levels):
-    #             c.set_linewidths([lw] * num_lines)
+    ax.legend(frameon=False, handlelength=1, loc='upper left')
 
     plt.tight_layout()
     plt.show()
