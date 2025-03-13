@@ -9,7 +9,10 @@ import torch
 
 from uq_odil.multigrid import MultigridField
 
-def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
+def sigmoid(x):
+    return 1.0 / (1.0 + torch.exp(-x))
+
+def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data, device):
     torch.set_default_dtype(torch.float32)
 
     num_epochs = 20000
@@ -51,8 +54,8 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
     D0p = torch.from_numpy((diff_field + np.roll(diff_field, shift=-1, axis=0)) / 2).to(device)[:,:,None]
 
     # initial guess
-    u0 = torch.zeros((ny, nx, nt))
-    u0[:,:,-1] = ut_final
+    u0 = torch.full((ny, nx, nt), threshold)
+    #u0[:,:,-1] = ut_final
 
     mg = MultigridField(u0, loc='ppn', depth=6)
     mg.to(device)
@@ -76,15 +79,15 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, device):
         return torch.mean(residuals**2)
 
     def data_loss(u):
-        utf = (1 + torch.tanh((u[:,:,-1] - threshold) / 0.001)) / 2
-        residuals = utf - ut_final
-        return 10 * torch.mean(residuals**2)
+        alphas = torch.sigmoid((u[:,:,-1] - threshold))
+        neg_loss = ut_final * torch.log(alphas) + (1-ut_final) * torch.log(1-alphas)
+        return -torch.mean(neg_loss) * sigma_data
 
     def init_loss(u, x0, y0, R0):
         u0 = u[:,:,0]
         u0_guess = torch.exp(-((X-x0)**2 + (Y-y0)**2) / (2 * R0**2))
         residuals = u0 - u0_guess
-        return 5 * torch.mean(residuals**2)
+        return 10 * torch.mean(residuals**2)
 
 
     R0 = L/32
@@ -148,6 +151,7 @@ def main():
     parser.add_argument("--initial-pos", type=float, nargs=2, default=[2/3, 1/3], help="position of initial tumor")
     parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
     parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
+    parser.add_argument("--sigma-data", type=float, default=0.001, help="Data uncertainty parameter.")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -157,6 +161,7 @@ def main():
         initial_pos=args.initial_pos,
         dump_snapshots=args.dump_snapshots,
         threshold=args.threshold,
+        sigma_data=args.sigma_data,
         device=device)
 
 

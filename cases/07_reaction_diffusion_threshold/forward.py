@@ -7,15 +7,20 @@ import os
 
 from random_field import generate_random_field
 
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", type=str, default="out_forward", help="output directory")
     parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
     parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
+    parser.add_argument("--sigma-data", type=float, default=0.001, help="Data uncertainty parameter.")
     parser.add_argument("--smoothness", type=float, default=0.125, help="Smoothness factor.")
     args = parser.parse_args()
 
     threshold = args.threshold
+    sigma_data = args.sigma_data
     out_dir = args.out_dir
     dump = args.dump_snapshots
     os.makedirs(out_dir, exist_ok=True)
@@ -95,7 +100,16 @@ def main():
             next_tdump += t_every
             dump_id += 1
 
-    ut = np.where(u > threshold, 1.0, 0.0)
+    # generate data according to statistical model
+    alphas = sigmoid((u - threshold) / sigma_data)
+    ut = rng.binomial(1, p=alphas)
+
+    if dump:
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(ut, origin='lower', extent=[0, L, 0, L], vmin=0, vmax=1)
+        plt.savefig(os.path.join(out_dir, f"ut_final.png"))
+        plt.close(fig)
+
     with open(os.path.join(out_dir, "ut_final.npy"), "wb") as f:
         np.save(f, ut)
 

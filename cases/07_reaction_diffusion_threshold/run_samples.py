@@ -15,12 +15,14 @@ def main():
     parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
     parser.add_argument("--base-out-dir", type=str, default="out_samples", help="base output directory")
     parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
+    parser.add_argument("--sigma-data", type=float, default=0.001, help="Data uncertainty parameter.")
     args = parser.parse_args()
 
     samples_csv = args.samples_csv
     forward_dir = args.forward_dir
     base_dir = args.base_out_dir
     threshold = args.threshold
+    sigma_data = args.sigma_data
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -48,6 +50,7 @@ def main():
             initial_pos=[x0, y0],
             dump_snapshots=False,
             threshold=threshold,
+            sigma_data=sigma_data,
             device=device)
 
 if __name__ == '__main__':

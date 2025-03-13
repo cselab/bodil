@@ -13,12 +13,14 @@ def main():
     parser.add_argument("--forward-dir", type=str, default="out_forward", help="output directory of forward.py")
     parser.add_argument("--base-out-dir", type=str, default="out_plane", help="base output directory")
     parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
+    parser.add_argument("--sigma-data", type=float, default=0.001, help="Data uncertainty parameter.")
     parser.add_argument("--n", type=int, default=19, help="Number of points along each dimension.")
     args = parser.parse_args()
 
     forward_dir = args.forward_dir
     base_dir = args.base_out_dir
     threshold = args.threshold
+    sigma_data = args.sigma_data
     nx = ny = args.n
 
     comm = MPI.COMM_WORLD
@@ -50,6 +52,7 @@ def main():
             initial_pos=[x0, y0],
             dump_snapshots=False,
             threshold=threshold,
+            sigma_data=sigma_data,
             device=device)
 
 if __name__ == '__main__':
