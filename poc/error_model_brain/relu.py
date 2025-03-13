@@ -18,9 +18,7 @@ def main():
         loss = relu((uc - u) / sigma)
         axes[0].plot(u, loss, label=fr'$\sigma = {sigma}$')
 
-        beta = sigma * 10
-        print(beta)
-        p = np.exp(- beta * loss)
+        p = np.exp(- loss)
         norm = np.sum((p[:-1] + p[1:]) * np.diff(u))
         p /= norm
         axes[1].plot(u, p, label=fr'$\sigma = {sigma}$', ls=['-', '--', '-.'][i])

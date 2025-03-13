@@ -23,9 +23,9 @@ def main():
         print(f"alpha = {alpha}")
         axes[0].plot(u, loss, label=fr'$\sigma = {sigma}$')
 
-        beta = 1/sigma
-        print(beta)
-        p = np.exp(- beta * loss)
+        #beta = 1/sigma
+        #print(beta)
+        p = np.exp(- loss)
         norm = np.sum((p[:-1] + p[1:]) * np.diff(u))
         p /= norm
         axes[1].plot(u, p, label=fr'$\sigma = {sigma}$')
