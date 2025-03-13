@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--out-dir", type=str, default="out_forward", help="output directory")
     parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
     parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
+    parser.add_argument("--smoothness", type=float, default=0.125, help="Smoothness factor.")
     args = parser.parse_args()
 
     threshold = args.threshold
@@ -34,7 +35,7 @@ def main():
     dx = x[1] - x[0]
     dy = y[1] - y[0]
 
-    diff_field = generate_random_field(nx, ny, smoothness=nx/8, rng=rng).T
+    diff_field = generate_random_field(nx, ny, smoothness=nx * args.smoothness, rng=rng).T
     diff_field = np.where(diff_field > 0, Dw, Dg)
 
     if dump:
