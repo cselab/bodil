@@ -3,22 +3,25 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def relu(x):
-    return np.where(x > 0, x, 0)
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
+    #return 0.5 * (1 + np.tanh(x))
 
 def main():
     u = np.linspace(0, 1, 1000)
     uc = 0.7 # threshold
 
-    # loss based on relu squared.
+    # loss computed from the binomial distribution with a sigmoid probability:
 
     fig, axes = plt.subplots(ncols=2, figsize=(6.8, 3.4))
 
-    for i, sigma in enumerate([0.01, 0.05, 0.02]):
-        loss = relu((uc - u) / sigma)**2
+    for sigma in [0.05, 0.02, 0.01]:
+        alpha = sigmoid((u - uc) / sigma)
+        p = alpha
+        loss = -np.log(alpha)
         axes[0].plot(u, loss, label=fr'$\sigma = {sigma}$')
 
-        p = np.exp(-loss)
+        p = np.exp(- loss)
         norm = np.sum((p[:-1] + p[1:]) * np.diff(u))
         p /= norm
         axes[1].plot(u, p, label=fr'$\sigma = {sigma}$')
@@ -28,7 +31,7 @@ def main():
     ax.set_xlabel(r"$u$")
     ax.set_ylabel(r"$loss$")
     ax.set_xlim(0, 1)
-    ax.set_ylim(0, None)
+    #ax.set_ylim(0, 1)
     ax.legend()
 
     ax = axes[1]
