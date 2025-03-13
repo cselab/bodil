@@ -19,6 +19,7 @@ for smoothness in 0.125 1.000; do
             --sigma $sigma --sigma-MCMC $sigma_MCMC
 
         mpirun -n 8 ./run_samples.py \
+               --forward-dir $outdir/out_forward \
                $outdir/samples_sigma_${sigma}.csv \
                --base-out-dir $outdir/out_samples_sigma_${sigma}
 
