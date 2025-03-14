@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import RBFInterpolator
 
-def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.015, seed=239486):
+def generate_samples_MCMC_(posterior, x0, num_samples, xmin, xmax, sigma=0.015, seed=239486):
     rng = np.random.default_rng(seed)
     x = x0.copy()
     p = posterior(x0)
@@ -23,31 +23,60 @@ def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, sigma=0.015, s
             accepted += 1
         samples.append(x)
     arate = accepted / num_samples
-    print(f"acceptance rate {arate}")
-    return np.array(samples)
+    return arate, np.array(samples)
+
+def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, seed=239486, tolerance=0.05, max_iter = 100):
+    target_rate = 0.65
+    sigma_min = 0.0
+    sigma_max = 1.0
+    sigma_mid = (sigma_min + sigma_max) / 2
+    arate_min, samples_min = generate_samples_MCMC_(posterior, x0, num_samples, xmin, xmax, sigma_min, seed)
+    arate_max, samples_max = generate_samples_MCMC_(posterior, x0, num_samples, xmin, xmax, sigma_max, seed)
+    arate_mid, samples_mid = generate_samples_MCMC_(posterior, x0, num_samples, xmin, xmax, sigma_mid, seed)
+
+    print(f"sigma {sigma_mid} acceptance rate {arate_mid}")
+    iter = 0
+    while abs(target_rate - arate_mid) > tolerance and iter < max_iter:
+        if arate_mid < target_rate:
+            sigma_max = sigma_mid
+            arate_max = arate_mid
+            samples_max = samples_mid
+        else:
+            sigma_min = sigma_mid
+            arate_min = arate_mid
+            samples_min = samples_mid
+
+        sigma_mid = (sigma_min + sigma_max) / 2
+        arate_mid, samples_mid = generate_samples_MCMC_(posterior, x0, num_samples, xmin, xmax, sigma_mid, seed)
+        iter += 1
+        print(f"sigma {sigma_mid} acceptance rate {arate_mid}")
+
+    return samples_mid
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('csv', type=str, help='csv files that contains losses against parameter x0')
     parser.add_argument('--sigma', type=float, default=0.1, help='data measurements error')
-    parser.add_argument('--sigma-MCMC', type=float, default=0.015, help='std of proposal distribution in MCMC')
     parser.add_argument('--nsamples', type=int, default=1000, help='number of samples to generate')
     parser.add_argument('--out-csv', type=str, default="samples.csv", help='output path to dump generated samples')
     parser.add_argument('--show-plot', action='store_true', default=False, help='show plot')
+    parser.add_argument('--show-samples', action='store_true', default=False, help='show samples on plot')
     args = parser.parse_args()
 
     nsamples = args.nsamples
     csv_path = args.csv
-    n = 128 # resolution for the interpolated function
+    n = 1024 # resolution for the interpolated function
 
     # ODIL loss has term lambda_data * mean(delta u^2), mean over nx * ny data points.
     # equivalent "likelihood" for data would be sum delta u^2 / 2 sigma^2, where sigma is measurements error
     # pseudo-likelihood is exp(-beta * ODLI_loss), so we can compute beta to correspond to a given sigma.
     nx = ny = 64
-    lambda_data = 10
+    lambda_data = 1
     sigma = args.sigma
-    beta = nx * ny / (2 * lambda_data * sigma**2)
+    #beta = nx * ny / (2 * lambda_data * sigma**2)
+    #beta = nx * ny / sigma
+    beta = nx * ny / lambda_data / 10
 
     df = pd.read_csv(csv_path)
     x0 = df['x0'].to_numpy()
@@ -73,19 +102,28 @@ def main():
 
     loss = interp(np.vstack((X.flatten(), Y.flatten())).T).reshape((n, n))
 
+    # for numerical stability
+    loss -= np.min(loss)
 
     p = np.exp(-beta * loss)
-    norm = np.sum(p[:-1,:-1] + p[1:,:-1] + p[1:,1:]) * dx * dy / 4
+
+    print(beta)
+    print(np.min(p), np.max(p))
+    norm = np.sum(p[:-1,:-1] + p[1:,:-1] + p[1:,1:] + p[-1:,1:]) * dx * dy / 4
+    print(norm)
     p /= norm
+
 
     def posterior(x):
         l = interp(x.reshape((-1,2)))
         p = np.exp(-beta * l) / norm
         return p
 
-    samples = generate_samples_MCMC(posterior, np.array([2/3, 1/3]), num_samples=nsamples,
-                                    xmin=[np.min(x0), np.min(y0)], xmax=[np.max(x0), np.max(y0)],
-                                    sigma=args.sigma_MCMC)
+    imax = np.argmax(p)
+    x0max = np.array([X.flatten()[imax], Y.flatten()[imax]])
+
+    samples = generate_samples_MCMC(posterior, x0max, num_samples=nsamples,
+                                    xmin=[np.min(x0), np.min(y0)], xmax=[np.max(x0), np.max(y0)])
 
     data = {
         'x0': samples[:,0],
@@ -97,7 +135,8 @@ def main():
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         ax.contourf(X, Y, p, levels=100)
-        ax.plot(samples[:,0], samples[:,1], '+r')
+        if args.show_samples:
+            ax.plot(samples[:,0], samples[:,1], '+r')
         ax.set_xlabel(r'$x_0$')
         ax.set_ylabel(r'$y_0$')
         ax.set_xlim(0, 1)
