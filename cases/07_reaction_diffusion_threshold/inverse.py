@@ -76,18 +76,18 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
 
         residuals = dudt - rhs
 
-        return 1e3 * torch.mean(residuals**2)
+        return 1e4 * torch.mean(residuals**2)
 
     def data_loss(u):
         alphas = torch.sigmoid((u[:,:,-1] - threshold))
         neg_loss = ut_final * torch.log(alphas) + (1-ut_final) * torch.log(1-alphas)
-        return -torch.mean(neg_loss)
+        return - torch.mean(neg_loss)
 
     def init_loss(u, x0, y0, R0):
         u0 = u[:,:,0]
         u0_guess = torch.exp(-((X-x0)**2 + (Y-y0)**2) / (2 * R0**2))
         residuals = u0 - u0_guess
-        return 1e3 * torch.mean(residuals**2)
+        return 1e5 * torch.mean(residuals**2)
 
 
     R0 = L/32

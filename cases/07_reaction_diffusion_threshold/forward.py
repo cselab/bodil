@@ -8,7 +8,9 @@ import os
 from random_field import generate_random_field
 
 def sigmoid(x):
-    return 1.0 / (1.0 + np.exp(-x))
+    return np.where(x >= 0,
+                    1.0 / (1.0 + np.exp(-x)),
+                    np.exp(x) / (np.exp(x) + 1.0))
 
 def main():
     parser = argparse.ArgumentParser()
