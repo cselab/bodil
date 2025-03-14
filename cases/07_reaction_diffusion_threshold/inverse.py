@@ -79,7 +79,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
         return 1e4 * torch.mean(residuals**2)
 
     def data_loss(u):
-        alphas = torch.sigmoid((u[:,:,-1] - threshold))
+        alphas = torch.sigmoid((u[:,:,-1] - threshold) / sigma_data)
         neg_loss = ut_final * torch.log(alphas) + (1-ut_final) * torch.log(1-alphas)
         return - torch.mean(neg_loss)
 
