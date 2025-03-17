@@ -3,33 +3,42 @@
 set -eu
 
 for smoothness in 0.125 1.000; do
-    outdir=results_smoothness_${smoothness}
-    mkdir -p $outdir
-    ./forward.py --smoothness $smoothness --out-dir $outdir/out_forward
-    mpirun -n 8 ./run_plane.py --n 9 --forward-dir $outdir/out_forward --base-out-dir $outdir/out_plane
-    ./collect_losses.py $outdir/out_plane/* --out-csv $outdir/losses.csv
+    for sigma_data in 0.05 0.1; do
+        outdir=results_smoothness_${smoothness}_sigma_${sigma_data}
+        mkdir -p $outdir
+        ./forward.py \
+            --smoothness $smoothness \
+            --sigma-data $sigma_data \
+            --out-dir $outdir/out_forward
 
-    propagate() {
-        sigma=$1; shift
-        sigma_MCMC=$1; shift
+        mpirun -n 8 ./run_plane.py \
+               --n 9 \
+               --forward-dir $outdir/out_forward \
+               --base-out-dir $outdir/out_plane \
+               --sigma-data $sigma_data
+
+        ./collect_losses.py \
+            $outdir/out_plane/* \
+            --out-csv $outdir/losses.csv
 
         ./generate_posterior_samples.py \
             $outdir/losses.csv --nsamples 128 \
-            --out-csv $outdir/samples_sigma_${sigma}.csv \
-            --sigma $sigma --sigma-MCMC $sigma_MCMC
+            --out-csv $outdir/samples.csv
 
         mpirun -n 8 ./run_samples.py \
                --forward-dir $outdir/out_forward \
-               $outdir/samples_sigma_${sigma}.csv \
-               --base-out-dir $outdir/out_samples_sigma_${sigma}
+               $outdir/samples.csv \
+               --sigma-data $sigma_data \
+               --base-out-dir $outdir/out_samples
 
         ./extract_uq_levelsets.py \
-            $outdir/out_samples_sigma_$sigma/* \
+            $outdir/out_samples/* \
             --ground-truth $outdir/out_forward/u_final.npy \
-            --out-contours $outdir/contours_sigma_${sigma}.pkl
-    }
+            --out-contours $outdir/contours.pkl
 
-    propagate 0.01 0.001
-    propagate 0.05 0.007
-    propagate 0.10 0.015
+        ./extract_uq_levelsets.py \
+            $outdir/out_samples/* \
+            --ground-truth $outdir/out_forward/u_final.npy \
+            --out-contours $outdir/contours.pkl
+    done
 done
