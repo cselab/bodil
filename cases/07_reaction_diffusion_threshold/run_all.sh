@@ -35,10 +35,5 @@ for smoothness in 0.125 1.000; do
             $outdir/out_samples/* \
             --ground-truth $outdir/out_forward/u_final.npy \
             --out-contours $outdir/contours.pkl
-
-        ./extract_uq_levelsets.py \
-            $outdir/out_samples/* \
-            --ground-truth $outdir/out_forward/u_final.npy \
-            --out-contours $outdir/contours.pkl
     done
 done
