@@ -57,7 +57,6 @@ def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, seed=239486, t
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('csv', type=str, help='csv files that contains losses against parameter x0')
-    parser.add_argument('--sigma', type=float, default=0.1, help='data measurements error')
     parser.add_argument('--nsamples', type=int, default=1000, help='number of samples to generate')
     parser.add_argument('--out-csv', type=str, default="samples.csv", help='output path to dump generated samples')
     parser.add_argument('--show-plot', action='store_true', default=False, help='show plot')
@@ -68,15 +67,12 @@ def main():
     csv_path = args.csv
     n = 1024 # resolution for the interpolated function
 
-    # ODIL loss has term lambda_data * mean(delta u^2), mean over nx * ny data points.
-    # equivalent "likelihood" for data would be sum delta u^2 / 2 sigma^2, where sigma is measurements error
-    # pseudo-likelihood is exp(-beta * ODLI_loss), so we can compute beta to correspond to a given sigma.
+    # ODIL loss has term mean(log likelihood(u)), mean over nx * ny data points.
+    # equivalent "likelihood" for data would be sum (log likelihood(u))
+    # pseudo-likelihood is exp(-beta * ODLI_loss), so we can compute beta.
     nx = ny = 64
     lambda_data = 1
-    sigma = args.sigma
-    #beta = nx * ny / (2 * lambda_data * sigma**2)
-    #beta = nx * ny / sigma
-    beta = nx * ny / lambda_data / 10
+    beta = nx * ny / lambda_data / 20
 
     df = pd.read_csv(csv_path)
     x0 = df['x0'].to_numpy()
@@ -107,10 +103,7 @@ def main():
 
     p = np.exp(-beta * loss)
 
-    print(beta)
-    print(np.min(p), np.max(p))
     norm = np.sum(p[:-1,:-1] + p[1:,:-1] + p[1:,1:] + p[-1:,1:]) * dx * dy / 4
-    print(norm)
     p /= norm
 
 

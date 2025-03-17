@@ -1,4 +1,5 @@
 *.csv
 *.npy
 *.png
+*.pkl
 train_history.csv
