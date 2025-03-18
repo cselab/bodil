@@ -16,8 +16,7 @@ def generate_samples_MCMC_(posterior, x0, num_samples, xmin, xmax, sigma=0.015, 
         xp = np.maximum(xmin, np.minimum(xmax, xp))
         pp = posterior(xp)
         u = rng.uniform()
-        a = pp / p
-        if u <= a:
+        if u * p < pp:
             x = xp
             p = pp
             accepted += 1
@@ -25,7 +24,7 @@ def generate_samples_MCMC_(posterior, x0, num_samples, xmin, xmax, sigma=0.015, 
     arate = accepted / num_samples
     return arate, np.array(samples)
 
-def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, seed=239486, tolerance=0.05, max_iter = 100):
+def generate_samples_MCMC(posterior, x0, num_samples, xmin, xmax, seed=23948, tolerance=0.05, max_iter = 100):
     target_rate = 0.65
     sigma_min = 0.0
     sigma_max = 1.0
@@ -72,7 +71,7 @@ def main():
     # pseudo-likelihood is exp(-beta * ODLI_loss), so we can compute beta.
     nx = ny = 64
     lambda_data = 1
-    beta = nx * ny / lambda_data / 20
+    beta = nx * ny / lambda_data
 
     df = pd.read_csv(csv_path)
     x0 = df['x0'].to_numpy()
@@ -99,18 +98,17 @@ def main():
     loss = interp(np.vstack((X.flatten(), Y.flatten())).T).reshape((n, n))
 
     # for numerical stability
-    loss -= np.min(loss)
+    lshift = np.min(loss)
+    loss -= lshift
 
     p = np.exp(-beta * loss)
 
     norm = np.sum(p[:-1,:-1] + p[1:,:-1] + p[1:,1:] + p[-1:,1:]) * dx * dy / 4
     p /= norm
 
-
     def posterior(x):
-        l = interp(x.reshape((-1,2)))
-        p = np.exp(-beta * l) / norm
-        return p
+        l = interp(x.reshape((-1,2))) - lshift
+        return np.exp(-beta * l) / norm
 
     imax = np.argmax(p)
     x0max = np.array([X.flatten()[imax], Y.flatten()[imax]])
@@ -127,9 +125,10 @@ def main():
     if args.show_plot:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        ax.contourf(X, Y, p, levels=100)
+        ct = ax.contourf(X, Y, p, levels=200)
         if args.show_samples:
-            ax.plot(samples[:,0], samples[:,1], '+r')
+            ax.plot(samples[:,0], samples[:,1], '.r')
+        fig.colorbar(ct)
         ax.set_xlabel(r'$x_0$')
         ax.set_ylabel(r'$y_0$')
         ax.set_xlim(0, 1)
