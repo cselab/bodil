@@ -127,7 +127,7 @@ def main():
         fig, ax = plt.subplots()
         ct = ax.contourf(X, Y, p, levels=200)
         if args.show_samples:
-            ax.plot(samples[:,0], samples[:,1], '.r')
+            ax.plot(samples[:,0], samples[:,1], '.r', ms=0.3)
         fig.colorbar(ct)
         ax.set_xlabel(r'$x_0$')
         ax.set_ylabel(r'$y_0$')

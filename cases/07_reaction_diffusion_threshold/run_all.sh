@@ -12,7 +12,7 @@ for smoothness in 0.125 1.000; do
             --out-dir $outdir/out_forward
 
         mpirun -n 8 ./run_plane.py \
-               --n 9 \
+               --n 19 \
                --forward-dir $outdir/out_forward \
                --base-out-dir $outdir/out_plane \
                --sigma-data $sigma_data
