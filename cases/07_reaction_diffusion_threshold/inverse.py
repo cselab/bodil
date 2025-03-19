@@ -12,7 +12,7 @@ from uq_odil.multigrid import MultigridField
 def sigmoid(x):
     return 1.0 / (1.0 + torch.exp(-x))
 
-def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data, device):
+def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data, device, lambda_pde=10, lambda_ic=100):
     torch.set_default_dtype(torch.float32)
 
     num_epochs = 20000
@@ -76,7 +76,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
 
         residuals = dudt - rhs
 
-        return 10 * torch.mean(residuals**2)
+        return lambda_pde * torch.mean(residuals**2)
 
     def data_loss(u):
         alphas = torch.sigmoid((u[:,:,-1] - threshold) / sigma_data)
@@ -87,7 +87,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
         u0 = u[:,:,0]
         u0_guess = torch.exp(-((X-x0)**2 + (Y-y0)**2) / (2 * R0**2))
         residuals = u0 - u0_guess
-        return 100 * torch.mean(residuals**2)
+        return lambda_ic * torch.mean(residuals**2)
 
 
     R0 = L/32
@@ -152,6 +152,8 @@ def main():
     parser.add_argument("--dump-snapshots", action='store_true', default=False, help="if set, dump images of field.")
     parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
     parser.add_argument("--sigma-data", type=float, default=0.001, help="Data uncertainty parameter.")
+    parser.add_argument("--lambda-pde", type=float, default=10, help="Coefficient for PDE residuals loss.")
+    parser.add_argument("--lambda-ic", type=float, default=100, help="Coefficient for IC residuals loss.")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -162,6 +164,8 @@ def main():
         dump_snapshots=args.dump_snapshots,
         threshold=args.threshold,
         sigma_data=args.sigma_data,
+        lambda_pde=args.lambda_pde,
+        lambda_ic=args.lambda_ic,
         device=device)
 
 

@@ -16,6 +16,8 @@ def main():
     parser.add_argument("--base-out-dir", type=str, default="out_samples", help="base output directory")
     parser.add_argument("--threshold", type=float, default=0.5, help="Measurement threshold.")
     parser.add_argument("--sigma-data", type=float, default=0.001, help="Data uncertainty parameter.")
+    parser.add_argument("--lambda-pde", type=float, default=10, help="Coefficient for PDE residuals loss.")
+    parser.add_argument("--lambda-ic", type=float, default=100, help="Coefficient for IC residuals loss.")
     args = parser.parse_args()
 
     samples_csv = args.samples_csv
@@ -51,6 +53,8 @@ def main():
             dump_snapshots=False,
             threshold=threshold,
             sigma_data=sigma_data,
+            lambda_pde=args.lambda_pde,
+            lambda_ic=args.lambda_ic,
             device=device)
 
 if __name__ == '__main__':
