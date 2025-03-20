@@ -2,7 +2,7 @@
 
 #set -eu
 
-: ${nprocs=4}
+: ${nprocs=32}
 
 module load gcc/14.2.0-fasrc01 openmpi/5.0.5-fasrc01 python/3.12.8-fasrc01
 mamba activate uqodil
@@ -17,7 +17,7 @@ run_case() {
     mkdir -p $outdir
 
     nranks=$nprocs
-    tasks_per_node=1
+    tasks_per_node=2
     nodes=$(python -c "print($nprocs//$tasks_per_node)")
 
     batch=$outdir/sbatch.sh
@@ -26,18 +26,18 @@ run_case() {
 #SBATCH --partition=seas_gpu
 #SBATCH --nodes=${nodes}
 #SBATCH --ntasks-per-node=${tasks_per_node}
-#SBATCH -t 0-01:00 # time (D-HH:MM)
+#SBATCH -t 0-08:00 # time (D-HH:MM)
 #SBATCH --job-name=UQ-ODIL-${smoothness}_${sigma_data}
 #SBATCH --constraint=h100
 #SBATCH --gres=gpu
-#SBATCH --mem=10G
+#SBATCH --mem=20G
 
 ./forward.py \
     --smoothness $smoothness \
     --sigma-data $sigma_data \
     --out-dir $outdir/out_forward
 
-srun --mpi-pmi2 -n $nprocs ./run_plane.py \
+srun --mpi=pmix -n $nprocs ./run_plane.py \
        --n 19 \
        --forward-dir $outdir/out_forward \
        --base-out-dir $outdir/out_plane \
@@ -53,7 +53,7 @@ srun --mpi-pmi2 -n $nprocs ./run_plane.py \
     $outdir/losses.csv --nsamples 128 \
     --out-csv $outdir/samples.csv
 
-srun --mpi=pmi2 -n $nprocs ./run_samples.py \
+srun --mpi=pmix -n $nprocs ./run_samples.py \
        --forward-dir $outdir/out_forward \
        $outdir/samples.csv \
        --sigma-data $sigma_data \
@@ -67,11 +67,13 @@ srun --mpi=pmi2 -n $nprocs ./run_samples.py \
     --out-contours $outdir/contours.pkl
 EOS
 
-    exec sbatch $batch
+    sbatch $batch
 }
 
 
 run_case 0.125 0.05 10 100
-#run_case 0.125 0.10 20 200
-#run_case 1.000 0.05 10 100
-#run_case 1.000 0.10 20 200
+run_case 0.125 0.10 40 400
+run_case 0.125 0.01 10 100
+run_case 1.000 0.05 10 100
+run_case 1.000 0.10 40 400
+run_case 1.000 0.01 10 100
