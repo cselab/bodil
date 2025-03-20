@@ -86,8 +86,11 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
         return lambda_pde * torch.mean(residuals**2)
 
     def data_loss(u):
+        eps = 1e-6
         alphas = torch.sigmoid((u[:,:,-1] - threshold) / sigma_data)
         alphas = (alphas + alpha_shift) * alpha_scale
+        alphas = torch.minimum(torch.full_like(alphas, 1-eps), alphas)
+        alphas = torch.maximum(torch.full_like(alphas,   eps), alphas)
         neg_loss = ut_final * torch.log(alphas) + (1-ut_final) * torch.log(1-alphas)
         return - torch.mean(neg_loss)
 
