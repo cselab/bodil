@@ -102,8 +102,16 @@ def main():
             next_tdump += t_every
             dump_id += 1
 
+
+    # find scale and shift for normalizing the sigmoid to be in [0, 1]
+    a0 = sigmoid((0 - threshold) / sigma_data)
+    a1 = sigmoid((1 - threshold) / sigma_data)
+    scale = 1 / (a1 - a0)
+    shift = -a0
+
     # generate data according to statistical model
     alphas = sigmoid((u - threshold) / sigma_data)
+    alphas = (alphas + shift) * scale
     ut = rng.binomial(1, p=alphas)
 
     if dump:

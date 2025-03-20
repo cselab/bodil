@@ -10,7 +10,7 @@ import torch
 from uq_odil.multigrid import MultigridField
 
 def sigmoid(x):
-    return 1.0 / (1.0 + torch.exp(-x))
+    return 1.0 / (1.0 + np.exp(-x))
 
 def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data, device, lambda_pde=10, lambda_ic=100):
     torch.set_default_dtype(torch.float32)
@@ -18,6 +18,13 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
     num_epochs = 20000
     report_every = 2000
     lr = 1e-3
+
+    # find scale and shift for normalizing the sigmoid to be in [0, 1]
+    a0 = sigmoid((0 - threshold) / sigma_data)
+    a1 = sigmoid((1 - threshold) / sigma_data)
+    alpha_scale = 1 / (a1 - a0)
+    alpha_shift = -a0
+
 
     x0, y0 = initial_pos
 
@@ -80,6 +87,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
 
     def data_loss(u):
         alphas = torch.sigmoid((u[:,:,-1] - threshold) / sigma_data)
+        alphas = (alphas + alpha_shift) * alpha_scale
         neg_loss = ut_final * torch.log(alphas) + (1-ut_final) * torch.log(1-alphas)
         return - torch.mean(neg_loss)
 
