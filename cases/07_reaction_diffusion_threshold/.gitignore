@@ -3,3 +3,4 @@
 *.png
 *.pkl
 train_history.csv
+slurm*.out
