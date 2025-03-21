@@ -25,9 +25,8 @@ conda install -c conda-forge mpi4py mpich
 ```
 module load gcc/14.2.0-fasrc01 openmpi/5.0.5-fasrc01 python/3.12.8-fasrc01
 mamba create -n uqodil python=3.12.8 numpy pip wheel
-mamba install -n uqodil -y mpi4py 'openmpi=5.0.*=external_*' 
 mamba install -n uqodil -y cuda-toolkit=12.1.0 -c "nvidia/label/cuda-12.1.0"
 mamba install -n uqodil -y pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
 mamba activate uqodil
-pip install dpdprops matplotlib pint pandas
+pip install dpdprops matplotlib pint pandas mpi4py
 ```

@@ -49,15 +49,21 @@ def main():
         x0 = X[i]
         y0 = Y[i]
         out_dir = os.path.join(base_dir, f"x0_{x0:.5f}_y0_{y0:.5f}")
-        run(forward_dir=forward_dir,
-            out_dir=out_dir,
-            initial_pos=[x0, y0],
-            dump_snapshots=False,
-            threshold=threshold,
-            sigma_data=sigma_data,
-            lambda_pde=args.lambda_pde,
-            lambda_ic=args.lambda_ic,
-            device=device)
+        try:
+            run(forward_dir=forward_dir,
+                out_dir=out_dir,
+                initial_pos=[x0, y0],
+                dump_snapshots=False,
+                threshold=threshold,
+                sigma_data=sigma_data,
+                lambda_pde=args.lambda_pde,
+                lambda_ic=args.lambda_ic,
+                device=device)
+        except RuntimeError as e:
+            print(e)
+            print(f"Failed on {MPI.Get_processor_name()}")
+            print(f"Device: {device}")
+
 
 if __name__ == '__main__':
     main()

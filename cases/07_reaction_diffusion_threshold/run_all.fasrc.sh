@@ -13,7 +13,7 @@ run_case() {
     lambda_pde=$1; shift
     lambda_ic=$1; shift
 
-    outdir=$SCRATCH/uq-odil/reaction_diffusion/results_smoothness_${smoothness}_sigma_${sigma_data}
+    outdir=$SCRATCH/uq-odil/reaction_diffusion/results_smoothness_${smoothness}_sigma_${sigma_data}_lambda_pde_${lambda_pde}_ic_${lambda_ic}
     mkdir -p $outdir
 
     nranks=$nprocs
@@ -26,7 +26,7 @@ run_case() {
 #SBATCH --partition=seas_gpu
 #SBATCH --nodes=${nodes}
 #SBATCH --ntasks-per-node=${tasks_per_node}
-#SBATCH -t 0-08:00 # time (D-HH:MM)
+#SBATCH -t 0-04:00 # time (D-HH:MM)
 #SBATCH --job-name=UQ-ODIL-${smoothness}_${sigma_data}
 #SBATCH --constraint=h100
 #SBATCH --gres=gpu
@@ -70,6 +70,8 @@ EOS
     sbatch $batch
 }
 
+run_case 0.125 0.10 80 800
+run_case 0.125 0.10 160 1600
 
 run_case 0.125 0.05 10 100
 run_case 0.125 0.10 40 400
