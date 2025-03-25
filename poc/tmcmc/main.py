@@ -11,7 +11,8 @@ def TMCMC(log_likelihood,
           prior_sampler,
           beta: float,
           gamma: float,
-          num_samples: int):
+          num_samples: int,
+          rng):
     zeta = 0
     S = 1.0
     j = 1
@@ -43,17 +44,17 @@ def TMCMC(log_likelihood,
         num_times_chosen = np.zeros(num_samples, dtype=int)
 
         for k in range(num_samples):
-            i = np.random.choice(np.arange(num_samples), p=wj/np.sum(wj))
+            i = rng.choice(np.arange(num_samples), p=wj/np.sum(wj))
             if num_times_chosen[i] > 0:
                 # MH step
                 x = candidate_samples[i]
                 log_f = zeta * candidate_log_fvals[i] + log_prior_density(x)
 
-                xp = np.random.multivariate_normal(mean=x, cov=cov)
+                xp = rng.multivariate_normal(mean=x, cov=cov)
                 log_fvalp = log_likelihood(xp)
                 log_fp = log_prior_density(xp) + zeta *  log_fvalp
 
-                if log_fp >= log_f + np.log(np.random.uniform(0, 1)):
+                if log_fp >= log_f + np.log(rng.uniform(0, 1)):
                     candidate_samples[i] = xp
                     candidate_log_fvals[i] = log_fvalp
 
@@ -71,7 +72,8 @@ def TMCMC(log_likelihood,
 
 
 def main():
-    np.random.seed(123456)
+
+    rng = np.random.default_rng(123456)
 
     def log_prior_density(x):
         return norm.logpdf(x[0], loc=0, scale=1) + norm.logpdf(x[1], loc=0, scale=1)
@@ -80,16 +82,23 @@ def main():
         return np.random.normal(size=2)
 
     def log_likelihood(x):
-        return norm.logpdf(x[0], loc=1, scale=0.1) + norm.logpdf(x[1], loc=1, scale=0.1)
+        return norm.logpdf(x[0], loc=1, scale=0.02) + norm.logpdf(x[1], loc=1, scale=0.2)
 
     samples, evidence = TMCMC(log_likelihood=log_likelihood,
                               log_prior_density=log_prior_density,
                               prior_sampler=prior_sampler,
                               beta=0.2,
                               gamma=1,
-                              num_samples=128)
+                              num_samples=512,
+                              rng=rng)
 
-    print(np.mean(samples, axis=0))
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot(*samples.T, "+k")
+    ax.set_xlim(0, 2)
+    ax.set_ylim(0, 2)
+    ax.set_aspect('equal')
+    plt.show()
 
 if __name__ == '__main__':
     main()
