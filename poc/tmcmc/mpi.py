@@ -3,21 +3,16 @@
 from mpi4py import MPI
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from scipy.stats import norm, truncnorm
 import scipy.optimize as optimize
-
 
 def eval_log_like(samples, log_likelihood_func, comm):
     rank = comm.Get_rank()
     size = comm.Get_size()
-
     n = len(samples)
-
     n_per_rank = (n + size - 1) // size
     start = n_per_rank * rank
     end = min([start + n_per_rank, n])
-
     rank_log_fvals = np.array([log_likelihood_func(samples[i]) for i in range(start, end)])
     log_fvals = np.concatenate(comm.allgather(rank_log_fvals))
     return log_fvals
@@ -37,7 +32,7 @@ def TMCMC(log_likelihood,
 
     zeta = 0
     S = 1.0
-    j = 1
+    stage = 1
 
     samples = np.array([prior_sampler(rng) for i in range(num_samples)])
     log_fvals = eval_log_like(samples, log_likelihood, comm)
@@ -87,9 +82,9 @@ def TMCMC(log_likelihood,
         log_fvals = np.where(accepted, log_fvals, log_fvalsp)
 
         if rank == 0:
-            print(f"stage {j}: zeta = {zeta}, S = {S}")
+            print(f"stage {stage}: zeta = {zeta}, S = {S}")
 
-        j += 1
+        stage += 1
 
     evidence = S
     return samples, evidence
