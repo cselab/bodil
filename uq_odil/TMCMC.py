@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.stats import norm, truncnorm
 import scipy.optimize as optimize
+import sys
 
 def eval_log_like(samples, log_likelihood_func, comm, context):
     rank = comm.Get_rank()
@@ -86,6 +87,7 @@ def TMCMC(log_likelihood,
 
         if rank == 0:
             print(f"stage {stage}: zeta = {zeta}, S = {S}")
+            sys.stdout.flush()
 
         stage += 1
 
