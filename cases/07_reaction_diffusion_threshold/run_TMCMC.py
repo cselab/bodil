@@ -5,6 +5,7 @@ import json
 from mpi4py import MPI
 import numpy as np
 import os
+import sys
 import torch
 
 from inverse import run
@@ -66,7 +67,7 @@ def main():
         except RuntimeError as e:
             print(rank, e)
             print(f"Failed on {MPI.Get_processor_name()}, Device: {device}")
-
+            sys.stdout.flush()
         try:
             loss = collect_losses.compute_loss(out_dir)
             return -beta * loss
