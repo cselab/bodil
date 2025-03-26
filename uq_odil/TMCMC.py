@@ -24,7 +24,8 @@ def TMCMC(log_likelihood,
           gamma: float,
           num_samples: int,
           comm,
-          seed):
+          seed,
+          callback=None):
 
     rank = comm.Get_rank()
     rng = np.random.default_rng(seed)
@@ -37,6 +38,9 @@ def TMCMC(log_likelihood,
 
     samples = np.array([prior_sampler(rng) for i in range(num_samples)])
     log_fvals = eval_log_like(samples, log_likelihood, comm, context)
+
+    if callback and rank == 0:
+        callback(stage=stage, samples=samples, log_fvals=log_fvals, zeta=zeta, S=S)
 
     stage += 1
 
@@ -89,6 +93,10 @@ def TMCMC(log_likelihood,
             print(f"stage {stage}: zeta = {zeta}, S = {S}")
             sys.stdout.flush()
 
+            if callback:
+                callback(stage=stage, samples=samples, log_fvals=log_fvals, zeta=zeta, S=S)
+
+
         stage += 1
 
     evidence = S
@@ -97,6 +105,7 @@ def TMCMC(log_likelihood,
 
 def main():
     from mpi4py import MPI
+    import json
     comm = MPI.COMM_WORLD
 
     def log_prior_density(x):
@@ -108,6 +117,18 @@ def main():
     def log_likelihood(x, context):
         return norm.logpdf(x[0], loc=1, scale=0.05) + norm.logpdf(x[1], loc=1, scale=0.2)
 
+    def callback(stage, samples, log_fvals, zeta, S):
+        data = {
+            'stage': stage,
+            'zeta': zeta,
+            'S': S,
+            'samples': samples.tolist(),
+            'log_likelihood': log_fvals.tolist()
+        }
+
+        with open(f'stage_{stage:03d}.json', 'w') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
     samples, evidence = TMCMC(log_likelihood=log_likelihood,
                               log_prior_density=log_prior_density,
                               prior_sampler=prior_sampler,
@@ -115,7 +136,8 @@ def main():
                               gamma=1,
                               num_samples=128,
                               comm=comm,
-                              seed=234987)
+                              seed=234987,
+                              callback=callback)
 
     if comm.Get_rank() == 0:
         import matplotlib.pyplot as plt

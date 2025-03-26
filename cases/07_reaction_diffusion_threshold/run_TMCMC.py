@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import json
 from mpi4py import MPI
 import numpy as np
 import os
@@ -78,6 +79,17 @@ def main():
     def log_prior_density(x):
         return - 2 * np.log(L)
 
+    def callback(stage, samples, log_fvals, zeta, S):
+        data = {
+            'stage': stage,
+            'zeta': zeta,
+            'S': S,
+            'samples': samples.tolist(),
+            'log_likelihood': log_fvals.tolist()
+        }
+        path = os.path.join(base_dir, f"stage_{stage:03d}.json")
+        with open(path, 'w') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
     samples, evidence = TMCMC(log_likelihood=log_likelihood,
                               log_prior_density=log_prior_density,
@@ -86,7 +98,8 @@ def main():
                               gamma=1,
                               num_samples=nsamples,
                               comm=comm,
-                              seed=seed)
+                              seed=seed,
+                              callback=callback)
 
     if rank == 0:
         print(f"evidence: {evidence}")
