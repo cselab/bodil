@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import norm, truncnorm
-import scipy.optimize as optimize
+import scipy
+
 
 def TMCMC(log_likelihood,
           log_prior_density,
@@ -25,11 +26,12 @@ def TMCMC(log_likelihood,
         # adapt zeta
         zeta0 = zeta
 
-        def cv(z):
-            a = np.exp((z-zeta0) * log_fvals)
-            return np.std(a) / np.mean(a)
+        def logg(z):
+            M1 = scipy.special.logsumexp((z - zeta0) * log_fvals    ) - np.log(num_samples)
+            M2 = scipy.special.logsumexp((z - zeta0) * log_fvals * 2) - np.log(num_samples)
+            return M2 - 2 * M1 - np.log(1 + gamma**2)
 
-        res = optimize.fsolve(lambda z: cv(z[0]) - gamma, x0=[zeta])
+        res = scipy.optimize.fsolve(lambda z: logg(z[0]), x0=[1.2 * zeta0])
         zeta = min([1.0, res[0]])
 
         # compute plausibility weights and update S
