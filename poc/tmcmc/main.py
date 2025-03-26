@@ -92,7 +92,6 @@ def main():
                               num_samples=512,
                               rng=rng)
 
-    import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     ax.plot(*samples.T, "+k")
     ax.set_xlim(0, 2)
