@@ -43,6 +43,15 @@ srun --mpi=pmix -n $nprocs ./run_TMCMC.py \
        --sigma-data $sigma_data \
        --lambda-pde $lambda_pde \
        --lambda-ic $lambda_ic
+
+paths=$(find $outdir/out_TMCMC/ -type d -name stage_???)
+for path in $paths; do
+    code=$(basename $path)
+    ./extract_uq_levelsets.py \
+        $outdir/out_TMCMC/$code/* \
+        --ground-truth $outdir/out_forward/u_final.npy \
+        --out-contours $outdir/contours_${code}.pkl
+done
 EOS
 
     sbatch $batch
