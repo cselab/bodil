@@ -24,8 +24,11 @@ def main():
         samples = np.array(data['samples'])
         loglike = np.array(data['log_likelihood'])
 
-        x0 = samples[:,0]
-        y0 = samples[:,1]
+        idx = np.argsort(loglike)
+
+        x0 = samples[idx,0]
+        y0 = samples[idx,1]
+        loglike = loglike[idx]
 
         fig, ax = plt.subplots()
         ax.scatter(x0, y0, c=loglike)
