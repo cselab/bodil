@@ -15,7 +15,7 @@ run_case() {
     lambda_pde=$1; shift
     lambda_ic=$1; shift
 
-    outdir=$SCRATCH/uq-odil/reaction_diffusion_${nsamples}/results_smoothness_${smoothness}_sigma_${sigma_data}_lambda_pde_${lambda_pde}_ic_${lambda_ic}
+    outdir=$SCRATCH/uq-odil/reaction_diffusion/results_smoothness_${smoothness}_sigma_${sigma_data}_lambda_pde_${lambda_pde}_ic_${lambda_ic}
     mkdir -p $outdir
 
     nodes=$(python -c "print($nprocs//$tasks_per_node)")
@@ -48,9 +48,9 @@ srun --mpi=pmix -n $nprocs ./run_TMCMC.py \
 for path in \$(find $outdir/out_TMCMC/ -type d -name "stage_???"); do
     code=\$(basename \$path)
     ./extract_uq_levelsets.py \
-        $outdir/out_TMCMC/$code/* \
+        $outdir/out_TMCMC/\$code/* \
         --ground-truth $outdir/out_forward/u_final.npy \
-        --out-contours $outdir/contours_${code}.pkl
+        --out-contours $outdir/contours_\$code.pkl
 done
 EOS
 
