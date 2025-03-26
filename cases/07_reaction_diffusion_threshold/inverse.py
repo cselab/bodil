@@ -12,7 +12,10 @@ from uq_odil.multigrid import MultigridField
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 
-def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data, device, lambda_pde=10, lambda_ic=100):
+def run(forward_dir, out_dir,
+        initial_pos, dump_snapshots, threshold, sigma_data, device,
+        lambda_pde=10, lambda_ic=100,
+        verbose=True):
     torch.set_default_dtype(torch.float32)
 
     num_epochs = 20000
@@ -128,7 +131,7 @@ def run(forward_dir, out_dir, initial_pos, dump_snapshots, threshold, sigma_data
 
         scheduler.step(l)
 
-        if epoch % report_every == 0:
+        if verbose and epoch % report_every == 0:
             print(f"epoch {epoch:06d} loss {l:.4e} lr {scheduler.get_last_lr()}")
 
     train_hist = {

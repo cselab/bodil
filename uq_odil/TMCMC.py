@@ -30,12 +30,14 @@ def TMCMC(log_likelihood,
 
     zeta = 0
     S = 1.0
-    stage = 1
+    stage = 0
 
     context = {'stage': stage}
 
     samples = np.array([prior_sampler(rng) for i in range(num_samples)])
     log_fvals = eval_log_like(samples, log_likelihood, comm, context)
+
+    stage += 1
 
     while zeta < 1:
         # adapt zeta
