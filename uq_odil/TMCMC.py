@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from mpi4py import MPI
 import numpy as np
 from scipy.stats import norm, truncnorm
 import scipy.optimize as optimize
@@ -93,7 +92,7 @@ def TMCMC(log_likelihood,
 
 
 def main():
-
+    from mpi4py import MPI
     comm = MPI.COMM_WORLD
 
     def log_prior_density(x):
