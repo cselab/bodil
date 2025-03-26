@@ -28,20 +28,21 @@ def main():
 
     ax = axes[0]
     ax.axvline(uc, ls='--', c='k')
-    ax.set_xlabel(r"$u$")
-    ax.set_ylabel(r"$loss$")
+    ax.set_xlabel(r"$u_{ij}$")
+    ax.set_ylabel(r"loss for $y_{ij} = 1$")
     ax.set_xlim(0, 1)
     #ax.set_ylim(0, 1)
     ax.legend()
 
     ax = axes[1]
     ax.axvline(uc, ls='--', c='k')
-    ax.set_xlabel(r"$u$")
-    ax.set_ylabel(r"$p(u|y=1)$")
+    ax.set_xlabel(r"$u_{ij}$")
+    ax.set_ylabel(r"$\alpha_{ij}$")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, None)
 
     plt.tight_layout()
+    plt.savefig("error_model.pdf")
     plt.show()
 
 if __name__ == '__main__':
