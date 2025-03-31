@@ -2,5 +2,6 @@
 *.npy
 *.png
 *.pkl
+*.mp4
 train_history.csv
 slurm*.out
