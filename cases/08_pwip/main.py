@@ -151,18 +151,23 @@ def main():
     x0 = data_x[0, 0]
     x1 = data_x[0, -1]
 
+    u = u.detach().numpy() * l_scale / t_scale * 100 # m/s -> cm/s
+
     fig, ax = plt.subplots()
-    ax.imshow(u.detach().numpy().T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
+    im = ax.imshow(u.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
     ax.set_xlabel(r"$t$ (ms)")
     ax.set_ylabel(r"$x$ (mm)")
+    fig.colorbar(im, ax=ax, label=r"$u$ (cm/s)")
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "u.pdf"))
     plt.close()
 
+    P = P.detach().numpy() * m_scale / l_scale / t_scale**2
     fig, ax = plt.subplots()
-    ax.imshow(P.detach().numpy().T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
+    im = ax.imshow(P.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
     ax.set_xlabel(r"$t$ (ms)")
     ax.set_ylabel(r"$x$ (mm)")
+    fig.colorbar(im, ax=ax, label=r"$P$ (Pa)")
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "P.pdf"))
     plt.close()
