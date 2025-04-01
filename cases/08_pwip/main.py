@@ -18,7 +18,7 @@ def main():
     out_dir = "out"
     os.makedirs(out_dir, exist_ok=True)
 
-    num_epochs = 5000
+    num_epochs = 2000
     report_every = 100
     lr = 1e-3
     lambda_PDE = 1000
@@ -35,7 +35,6 @@ def main():
     t_scale = 1/1000 # 1ms
     m_scale = 1e-6 # mg
 
-
     data_t /= t_scale
     data_x /= l_scale
     data_A /= l_scale**2
@@ -48,12 +47,10 @@ def main():
     dx = data_x[0,1] - data_x[0,0]
     print(f"dx = {dx} mm, dt = {dt} ms")
 
-
     # transfer data to pytorch
     data_A_ = torch.from_numpy(data_A)
     data_u_ = torch.from_numpy(data_u)
     data_P_ = torch.from_numpy(data_P)
-
 
     def pde_loss(kp, u, P, A0, Kr):
         dPdt = torch.diff((P[:,:-1] + P[:,1:]) / 2, dim=0) / dt
@@ -78,11 +75,6 @@ def main():
 
         return torch.mean(res_A**2) + torch.mean(res_P**2) + torch.mean(res_u**2)
 
-    def regularization_loss(kp):
-        lapl = (2 * kp[1:-1] - kp[0:-2] - kp[2:]) / dx**2
-        return lambda_reg * torch.mean(lapl**2)
-
-
     # unknowns
     u = data_u_.detach()
     u.requires_grad = True
@@ -96,7 +88,7 @@ def main():
     Kr = torch.tensor(0.0)
     Kr.requires_grad = True
 
-    kp = torch.zeros(nx-1, requires_grad=True)
+    kp = torch.ones(nx-1, requires_grad=True)
 
     optim = torch.optim.Adam([kp, u, P, A0, Kr], lr=lr)
 
@@ -109,7 +101,6 @@ def main():
         optim.zero_grad()
         ploss = pde_loss(kp, u, P, A0, Kr)
         dloss = data_loss(kp, u, P, A0)
-        rloss = regularization_loss(kp)
         loss = ploss + dloss + rloss
         loss.backward()
         optim.step()
@@ -134,10 +125,12 @@ def main():
     x = data_x[0,:]
     xm = (x[:-1] + x[1:]) / 2
 
+    kp_ = kp.detach().numpy() * l_scale**3 * t_scale**2 / m_scale
+
     fig, ax = plt.subplots()
-    ax.plot(xm, kp.detach().numpy())
+    ax.plot(xm, kp_)
     ax.set_xlabel(r"$x$ (mm)")
-    ax.set_ylabel(r"$k_p$")
+    ax.set_ylabel(r"$k_p$ (m$^3$ s$^2$ / kg)")
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "kp.pdf"))
     plt.close()
