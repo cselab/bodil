@@ -20,8 +20,9 @@ def main():
 
     num_epochs = 5000
     report_every = 100
-    lr = 1e-2
-    lambda_PDE = 10
+    lr = 1e-3
+    lambda_PDE = 1000
+    lambda_reg = 0
 
     data_path = args.data
 
@@ -30,13 +31,18 @@ def main():
     nt, nx = data_A.shape
 
     # rescale time and space to get mm and ms
-    data_t *= 1000    # -> ms
-    data_x *= 1000    # -> mm
-    data_A *= 1000**2 # -> mm^2
-    data_u *= 100     # -> cm/s
-    data_P *= 1       # -> Pa
+    l_scale = 1/1000 # 1mm
+    t_scale = 1/1000 # 1ms
+    m_scale = 1e-6 # mg
 
-    rho = 1000 # kg/m**3
+
+    data_t /= t_scale
+    data_x /= l_scale
+    data_A /= l_scale**2
+    data_u *= t_scale / l_scale
+    data_P *= t_scale**2 * l_scale / m_scale
+
+    rho = 1000 * l_scale**3 / m_scale
 
     dt = data_t[1,0] - data_t[0,0]
     dx = data_x[0,1] - data_x[0,0]
@@ -72,6 +78,10 @@ def main():
 
         return torch.mean(res_A**2) + torch.mean(res_P**2) + torch.mean(res_u**2)
 
+    def regularization_loss(kp):
+        lapl = (2 * kp[1:-1] - kp[0:-2] - kp[2:]) / dx**2
+        return lambda_reg * torch.mean(lapl**2)
+
 
     # unknowns
     u = data_u_.detach()
@@ -99,7 +109,8 @@ def main():
         optim.zero_grad()
         ploss = pde_loss(kp, u, P, A0, Kr)
         dloss = data_loss(kp, u, P, A0)
-        loss = ploss + dloss
+        rloss = regularization_loss(kp)
+        loss = ploss + dloss + rloss
         loss.backward()
         optim.step()
 
