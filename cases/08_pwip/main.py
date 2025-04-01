@@ -21,8 +21,8 @@ def main():
 
     os.makedirs(out_dir, exist_ok=True)
 
-    num_epochs = 2000
-    report_every = 100
+    num_epochs = 2500
+    report_every = 250
     lr = 1e-3
     lambda_PDE = 1000
 
@@ -91,6 +91,7 @@ def main():
     kp = torch.ones(nx-1, requires_grad=True)
 
     optim = torch.optim.Adam([kp, u, P, A0, Kr], lr=lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=1250, gamma=0.2)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -109,6 +110,8 @@ def main():
         pde_losses.append(ploss.item())
         data_losses.append(dloss.item())
         losses.append(l)
+
+        scheduler.step()
 
         if epoch % report_every == 0:
             print(f"epoch {epoch:06d} loss {l:.4e} A0 {A0.item()} Kr {Kr.item()}")
