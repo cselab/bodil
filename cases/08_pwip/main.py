@@ -3,6 +3,7 @@
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import scipy
 import torch
@@ -13,6 +14,9 @@ def main():
     args = parser.parse_args()
 
     torch.set_default_dtype(torch.float32)
+
+    out_dir = "out"
+    os.makedirs(out_dir, exist_ok=True)
 
     num_epochs = 5000
     report_every = 100
@@ -114,7 +118,7 @@ def main():
         'loss': losses
     }
 
-    pd.DataFrame(train_hist).to_csv('train_history.csv', index=False)
+    pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
 
     x = data_x[0,:]
     xm = (x[:-1] + x[1:]) / 2
@@ -124,7 +128,29 @@ def main():
     ax.set_xlabel(r"$x$ (mm)")
     ax.set_ylabel(r"$k_p$")
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(out_dir, "kp.pdf"))
+    plt.close()
+
+    t0 = data_t[0, 0]
+    t1 = data_t[-1, 0]
+    x0 = data_x[0, 0]
+    x1 = data_x[0, -1]
+
+    fig, ax = plt.subplots()
+    ax.imshow(u.detach().numpy().T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
+    ax.set_xlabel(r"$t$ (ms)")
+    ax.set_ylabel(r"$x$ (mm)")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "u.pdf"))
+    plt.close()
+
+    fig, ax = plt.subplots()
+    ax.imshow(P.detach().numpy().T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
+    ax.set_xlabel(r"$t$ (ms)")
+    ax.set_ylabel(r"$x$ (mm)")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "P.pdf"))
+    plt.close()
 
 
 
