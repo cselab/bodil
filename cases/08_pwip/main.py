@@ -101,7 +101,7 @@ def main():
         optim.zero_grad()
         ploss = pde_loss(kp, u, P, A0, Kr)
         dloss = data_loss(kp, u, P, A0)
-        loss = ploss + dloss + rloss
+        loss = ploss + dloss
         loss.backward()
         optim.step()
 
