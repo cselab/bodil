@@ -172,6 +172,18 @@ def main():
     plt.savefig(os.path.join(out_dir, "P.pdf"))
     plt.close()
 
+    Pm = (P[:,1:] + P[:,:-1]) / 2
+    A = A0.item() * l_scale**2 + kp_ * Pm
+    A *= 1e6 # m^2 -> mm^2
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(A.T, extent=(t0, t1, xm[0], xm[-1]), origin='lower', aspect='auto', cmap='jet')
+    ax.set_xlabel(r"$t$ (ms)")
+    ax.set_ylabel(r"$x$ (mm)")
+    fig.colorbar(im, ax=ax, label=r"$A$ (mm$^2$)")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "A.pdf"))
+    plt.close()
 
 if __name__ == '__main__':
     main()
