@@ -70,7 +70,7 @@ def main():
         dudt = torch.diff((u[:,:-1] + u[:,1:]) / 2, dim=0) / dt
         dudx = torch.diff((u[:-1,:] + u[1:,:]) / 2, dim=1) / dx
 
-        umm = (u[:-1,:-1] + u[1:,:-1] + u[:-1,1:] + u[1:,1:]) / 4
+        #umm = (u[:-1,:-1] + u[1:,:-1] + u[:-1,1:] + u[1:,1:]) / 4
 
         res0 = kp[None, :] * dPdt + A0 * dudx
         res1 = dudt + dPdx / rho #+ Kr * umm
@@ -88,13 +88,12 @@ def main():
     # unknowns
     u = data_u_.clone().detach()
     u.requires_grad = True
-    kp0 = 1.5
+    kp0 = 0.8
     kp = torch.full((nx-1,), fill_value=kp0, requires_grad=True)
 
     # initial guess of P
-    P = (data_A_ - A0) / kp0 + P0
+    P = (data_A_.clone() - A0) / kp0 + P0
     P.requires_grad = True
-
 
     optim = torch.optim.Adam([kp, u, P], lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=300, gamma=0.7)
@@ -196,6 +195,10 @@ def main():
     A = A0.item() * l_scale**2 + kp_ * Pm
     A *= 1e6 # m^2 -> mm^2
 
+    data_Am = (data_A[:,1:] + data_A[:,:-1]) / 2
+    data_Am *= l_scale**2 * 1e6
+    dA = np.abs(A - data_Am)
+
     fig, ax = plt.subplots()
     im = ax.imshow(A.T, extent=(t0, t1, xm[0], xm[-1]), origin='lower', aspect='auto', cmap='jet')
     ax.set_xlabel(r"$t$ (ms)")
@@ -203,6 +206,15 @@ def main():
     fig.colorbar(im, ax=ax, label=r"$A$ (mm$^2$)")
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "A.pdf"))
+    plt.close()
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(dA.T, extent=(t0, t1, xm[0], xm[-1]), origin='lower', aspect='auto', cmap='jet')
+    ax.set_xlabel(r"$t$ (ms)")
+    ax.set_ylabel(r"$x$ (mm)")
+    fig.colorbar(im, ax=ax, label=r"$|\delta A|$ (mm$^2$)")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "dA.pdf"))
     plt.close()
 
 if __name__ == '__main__':
