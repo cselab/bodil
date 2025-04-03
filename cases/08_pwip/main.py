@@ -8,6 +8,12 @@ import pandas as pd
 import scipy
 import torch
 
+def find_A0_P0(data_A, data_P):
+    P0 = 0.0
+    i, j = np.unravel_index(np.argmin((data_P - P0)**2), data_P.shape)
+    A0 = data_A[i, j]
+    return A0, P0
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str, help='path to .mat file containing the data')
@@ -21,10 +27,11 @@ def main():
 
     os.makedirs(out_dir, exist_ok=True)
 
-    num_epochs = 2500
+    num_epochs = 5000
     report_every = 250
-    lr = 1e-3
-    lambda_PDE = 1000
+    lr = 1e-2
+    lambda_PDE = 2.5
+    lambda_data = 1
 
     data = scipy.io.loadmat(data_path)
     data_A, data_u, data_P, data_t, data_x = data['matrix_var'].T
@@ -41,16 +48,20 @@ def main():
     data_u *= t_scale / l_scale
     data_P *= t_scale**2 * l_scale / m_scale
 
-    rho = 1000 * l_scale**3 / m_scale
+    A0, P0 = find_A0_P0(data_A, data_P)
+    Kr = 0
+    rho = 1000.689275457646
+
+    rho *= l_scale**3 / m_scale
 
     dt = data_t[1,0] - data_t[0,0]
     dx = data_x[0,1] - data_x[0,0]
     print(f"dx = {dx} mm, dt = {dt} ms")
+    print(f"P0 = {P0 * m_scale / t_scale**2 / l_scale} Pa, A0 = {A0} mm**2")
 
     # transfer data to pytorch
     data_A_ = torch.from_numpy(data_A)
     data_u_ = torch.from_numpy(data_u)
-    data_P_ = torch.from_numpy(data_P)
 
     def pde_loss(kp, u, P, A0, Kr):
         dPdt = torch.diff((P[:,:-1] + P[:,1:]) / 2, dim=0) / dt
@@ -69,29 +80,22 @@ def main():
     def data_loss(kp, u, P, A0):
         data_Am = (data_A_[:-1,:-1] + data_A_[1:,:-1] + data_A_[:-1,1:] + data_A_[1:,1:]) / 4
         Pm = (P[:-1,:-1] + P[1:,:-1] + P[:-1,1:] + P[1:,1:]) / 4
-        res_A = data_Am - A0 - kp[None,:] * Pm
-        res_P = data_P_ - P
+        res_A = data_Am - A0 - kp[None,:] * (Pm - P0)
         res_u = data_u_ - u
 
-        return torch.mean(res_A**2) + torch.mean(res_P**2) + torch.mean(res_u**2)
+        return lambda_data * (torch.mean(res_A**2) + torch.mean(res_u**2))
 
     # unknowns
     u = data_u_.detach()
     u.requires_grad = True
 
-    P = data_P_.detach()
+    P = torch.zeros_like(u)
     P.requires_grad = True
 
-    A0 = torch.tensor(np.median(data_A))
-    A0.requires_grad = True
+    kp = torch.full((nx-1,), fill_value=0.3, requires_grad=True)
 
-    Kr = torch.tensor(0.0)
-    Kr.requires_grad = True
-
-    kp = torch.ones(nx-1, requires_grad=True)
-
-    optim = torch.optim.Adam([kp, u, P, A0, Kr], lr=lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=1250, gamma=0.2)
+    optim = torch.optim.Adam([kp, u, P], lr=lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=300, gamma=0.7)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -114,7 +118,7 @@ def main():
         scheduler.step()
 
         if epoch % report_every == 0:
-            print(f"epoch {epoch:06d} loss {l:.4e} A0 {A0.item()} Kr {Kr.item()}")
+            print(f"epoch {epoch:06d} loss {l:.4e}")
 
     train_hist = {
         'epoch': epochs,
