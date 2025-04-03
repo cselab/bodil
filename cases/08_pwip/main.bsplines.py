@@ -48,6 +48,7 @@ def evaluate_all_basis(t_vals, num_ctrl_points, degree=3, t0=0.0, t1=1.0):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str, help='path to .mat file containing the data')
+    parser.add_argument('--num-basis', type=int, default=16, help='number of basis functions to represent kp')
     parser.add_argument('--out-dir', type=str, default='out', help='path to output directory')
     args = parser.parse_args()
 
@@ -58,11 +59,11 @@ def main():
 
     os.makedirs(out_dir, exist_ok=True)
 
-    num_epochs = 2500
+    num_epochs = 5000
     report_every = 250
-    lr = 5e-3
+    lr = 1e-2
     lambda_PDE = 1000
-    n_kp_basis = 16
+    n_kp_basis = args.num_basis
 
     data = scipy.io.loadmat(data_path)
     data_A, data_u, data_P, data_t, data_x = data['matrix_var'].T
@@ -136,10 +137,10 @@ def main():
     Kr = torch.tensor(0.0)
     Kr.requires_grad = True
 
-    kp_coeffs = torch.zeros(n_kp_basis, requires_grad=True)
+    kp_coeffs = torch.full(size=(n_kp_basis,), fill_value=1 / n_kp_basis, requires_grad=True)
 
     optim = torch.optim.Adam([kp_coeffs, u, P, A0, Kr], lr=lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=500, gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=300, gamma=0.7)
 
     epochs = list(range(num_epochs))
     pde_losses = []
