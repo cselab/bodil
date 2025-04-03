@@ -30,7 +30,7 @@ def main():
     num_epochs = 5000
     report_every = 250
     lr = 1e-2
-    lambda_PDE = 2.5
+    lambda_PDE = 1000
     lambda_data = 1
 
     data = scipy.io.loadmat(data_path)
@@ -70,29 +70,31 @@ def main():
         dudt = torch.diff((u[:,:-1] + u[:,1:]) / 2, dim=0) / dt
         dudx = torch.diff((u[:-1,:] + u[1:,:]) / 2, dim=1) / dx
 
-        um = (u[:-1,:-1] + u[1:,:-1] + u[:-1,1:] + u[1:,1:]) / 4
+        umm = (u[:-1,:-1] + u[1:,:-1] + u[:-1,1:] + u[1:,1:]) / 4
 
         res0 = kp[None, :] * dPdt + A0 * dudx
-        res1 = dudt + dPdx / rho + Kr * um
+        res1 = dudt + dPdx / rho #+ Kr * umm
 
         return lambda_PDE * (torch.mean(res0**2) + torch.mean(res1**2))
 
     def data_loss(kp, u, P, A0):
-        data_Am = (data_A_[:-1,:-1] + data_A_[1:,:-1] + data_A_[:-1,1:] + data_A_[1:,1:]) / 4
-        Pm = (P[:-1,:-1] + P[1:,:-1] + P[:-1,1:] + P[1:,1:]) / 4
+        data_Am = (data_A_[:,:-1] + data_A_[:,1:]) / 2
+        Pm = (P[:,:-1] + P[:,1:]) / 2
         res_A = data_Am - A0 - kp[None,:] * (Pm - P0)
         res_u = data_u_ - u
 
         return lambda_data * (torch.mean(res_A**2) + torch.mean(res_u**2))
 
     # unknowns
-    u = data_u_.detach()
+    u = data_u_.clone().detach()
     u.requires_grad = True
+    kp0 = 1.5
+    kp = torch.full((nx-1,), fill_value=kp0, requires_grad=True)
 
-    P = torch.zeros_like(u)
+    # initial guess of P
+    P = (data_A_ - A0) / kp0 + P0
     P.requires_grad = True
 
-    kp = torch.full((nx-1,), fill_value=0.3, requires_grad=True)
 
     optim = torch.optim.Adam([kp, u, P], lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=300, gamma=0.7)
@@ -143,22 +145,13 @@ def main():
     plt.savefig(os.path.join(out_dir, "kp.pdf"))
     plt.close()
 
-    inlet_P = P[:,0].detach().numpy() * m_scale / l_scale / t_scale**2
-
-    fig, ax = plt.subplots()
-    ax.plot(t, inlet_P)
-    ax.set_xlabel(r"$t$ (ms)")
-    ax.set_ylabel(r"$P$ (Pa)")
-    plt.tight_layout()
-    plt.savefig(os.path.join(out_dir, "inlet_P.pdf"))
-    plt.close()
-
     t0 = data_t[0, 0]
     t1 = data_t[-1, 0]
     x0 = data_x[0, 0]
     x1 = data_x[0, -1]
 
     u = u.detach().numpy() * l_scale / t_scale * 100 # m/s -> cm/s
+    du = np.abs(u - data_u * l_scale / t_scale * 100)
 
     fig, ax = plt.subplots()
     im = ax.imshow(u.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
@@ -169,7 +162,18 @@ def main():
     plt.savefig(os.path.join(out_dir, "u.pdf"))
     plt.close()
 
+    fig, ax = plt.subplots()
+    im = ax.imshow(du.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
+    ax.set_xlabel(r"$t$ (ms)")
+    ax.set_ylabel(r"$x$ (mm)")
+    fig.colorbar(im, ax=ax, label=r"$|\delta u|$ (cm/s)")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "du.pdf"))
+    plt.close()
+
     P = P.detach().numpy() * m_scale / l_scale / t_scale**2
+    dP = np.abs(P - data_P * m_scale / l_scale / t_scale**2)
+
     fig, ax = plt.subplots()
     im = ax.imshow(P.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
     ax.set_xlabel(r"$t$ (ms)")
@@ -177,6 +181,15 @@ def main():
     fig.colorbar(im, ax=ax, label=r"$P$ (Pa)")
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "P.pdf"))
+    plt.close()
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(dP.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
+    ax.set_xlabel(r"$t$ (ms)")
+    ax.set_ylabel(r"$x$ (mm)")
+    fig.colorbar(im, ax=ax, label=r"$|\delta P|$ (Pa)")
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, "dP.pdf"))
     plt.close()
 
     Pm = (P[:,1:] + P[:,:-1]) / 2
