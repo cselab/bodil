@@ -1,0 +1,1 @@
+The plaque is not located at the centre, rather at the right side unlike the synthetica data cases.

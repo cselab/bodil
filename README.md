@@ -1,3 +1,3 @@
-# UQ ODIL
+# UQ ODIL Data
 
-A proof-of-concept set of scripts for ODIL with uncertainty quantification.
+data used in cases for UQ-ODIL.

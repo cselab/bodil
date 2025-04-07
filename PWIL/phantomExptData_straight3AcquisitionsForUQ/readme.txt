@@ -1,0 +1,1 @@
+Each of these 3 acquisition folder has 2 cardiac cycle data. 
