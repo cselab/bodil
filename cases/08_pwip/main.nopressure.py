@@ -8,15 +8,15 @@ import pandas as pd
 import scipy
 import torch
 
-def find_A0_P0(data_u, data_A, data_P):
+def find_A0(data_u, data_A):
     i, j = np.unravel_index(np.argmin(data_u**2), data_u.shape)
     A0 = data_A[i, j]
-    P0 = data_P[i, j]
-    return A0, P0
+    return A0
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str, help='path to .mat file containing the data')
+    parser.add_argument('--fit-Kr', action='store_true', default=False)
     parser.add_argument('--out-dir', type=str, default='out', help='path to output directory')
     args = parser.parse_args()
 
@@ -24,13 +24,14 @@ def main():
 
     out_dir = args.out_dir
     data_path = args.data
+    fit_Kr = args.fit_Kr
 
     os.makedirs(out_dir, exist_ok=True)
 
     num_epochs = 5000
     report_every = 250
-    lr = 1e-2
-    lambda_PDE = 1000
+    lr = 5e-3
+    lambda_PDE = 100
     lambda_data = 1
 
     data = scipy.io.loadmat(data_path)
@@ -39,16 +40,23 @@ def main():
 
     # rescale time and space to get mm and ms
     l_scale = 1e-3 # 1mm
-    t_scale = 1e-3 # 1ms
+    t_scale = 2e-3 # 2ms
     m_scale = 1e-6 # mg
+    v_scale = l_scale / t_scale
+    p_scale = m_scale / (l_scale * t_scale**2)
+    k_scale = l_scale**3 * t_scale**2 / m_scale
 
     data_t /= t_scale
     data_x /= l_scale
     data_A /= l_scale**2
-    data_u *= t_scale / l_scale
-    data_P *= t_scale**2 * l_scale / m_scale
+    data_u /= v_scale
+    data_P /= p_scale
 
-    A0, P0 = find_A0_P0(data_u, data_A, data_P)
+    print("u", np.mean(data_u),  np.ptp(data_u))
+    print("A", np.mean(data_A),  np.ptp(data_A))
+
+
+    A0 = find_A0(data_u, data_A)
     Kr = 0
     rho = 1000.689275457646
 
@@ -57,30 +65,32 @@ def main():
     dt = data_t[1,0] - data_t[0,0]
     dx = data_x[0,1] - data_x[0,0]
     print(f"dx = {dx} mm, dt = {dt} ms")
-    print(f"P0 = {P0 * m_scale / t_scale**2 / l_scale} Pa, A0 = {A0} mm**2")
+    print(f"A0 = {A0} mm**2")
 
     # transfer data to pytorch
     data_A_ = torch.from_numpy(data_A)
     data_u_ = torch.from_numpy(data_u)
 
-    def pde_loss(kp, u, P, A0, Kr):
-        dPdt = torch.diff((P[:,:-1] + P[:,1:]) / 2, dim=0) / dt
-        dPdx = torch.diff((P[:-1,:] + P[1:,:]) / 2, dim=1) / dx
+    def pde_loss(kp, u, A, A0, Kr):
+        dAdt = torch.diff((A[:,:-1] + A[:,1:]) / 2, dim=0) / dt
+        dAdx = torch.diff((A[:-1,:] + A[1:,:]) / 2, dim=1) / dx
 
         dudt = torch.diff((u[:,:-1] + u[:,1:]) / 2, dim=0) / dt
         dudx = torch.diff((u[:-1,:] + u[1:,:]) / 2, dim=1) / dx
 
-        #umm = (u[:-1,:-1] + u[1:,:-1] + u[:-1,1:] + u[1:,1:]) / 4
+        dkpdx = torch.diff(kp) / dx
 
-        res0 = kp[None, :] * dPdt + A0 * dudx
-        res1 = dudt + dPdx / rho #+ Kr * umm
+        umm = (u[:-1,:-1] + u[1:,:-1] + u[:-1,1:] + u[1:,1:]) / 4
+        Amm = (A[:-1,:-1] + A[1:,:-1] + A[:-1,1:] + A[1:,1:]) / 4
+        kpm = (kp[:-1] + kp[1:]) / 2
 
-        return lambda_PDE * (torch.mean(res0**2) + torch.mean(res1**2))
+        res0 = dAdt + A0 * dudx
+        res1 = dudt + (dAdx - (Amm - A0) * dkpdx[None,:] / kpm[None,:]) / (rho * kpm[None,:]) + Kr * umm
 
-    def data_loss(kp, u, P, A0):
-        data_Am = (data_A_[:,:-1] + data_A_[:,1:]) / 2
-        Pm = (P[:,:-1] + P[:,1:]) / 2
-        res_A = data_Am - A0 - kp[None,:] * (Pm - P0)
+        return lambda_PDE * (100 * torch.mean(res0**2) + torch.mean(res1**2))
+
+    def data_loss(u, A):
+        res_A = data_A_ - A
         res_u = data_u_ - u
 
         return lambda_data * (torch.mean(res_A**2) + torch.mean(res_u**2))
@@ -88,14 +98,20 @@ def main():
     # unknowns
     u = data_u_.clone().detach()
     u.requires_grad = True
-    kp0 = 0.8
-    kp = torch.full((nx-1,), fill_value=kp0, requires_grad=True)
+    kp0 = 2e-9 / k_scale
+    kp = torch.full((nx,), fill_value=float(kp0), requires_grad=True)
 
-    # initial guess of P
-    P = (data_A_.clone() - A0) / kp0 + P0
-    P.requires_grad = True
+    if fit_Kr:
+        Kr = torch.tensor([0.0], requires_grad=True)
 
-    optim = torch.optim.Adam([kp, u, P], lr=lr)
+    A = data_A_.clone()
+    A.requires_grad = True
+
+    unknowns = [kp, u, A]
+    if fit_Kr:
+        unknowns.append(Kr)
+
+    optim = torch.optim.Adam(unknowns, lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=300, gamma=0.7)
 
     epochs = list(range(num_epochs))
@@ -105,8 +121,8 @@ def main():
 
     for epoch in epochs:
         optim.zero_grad()
-        ploss = pde_loss(kp, u, P, A0, Kr)
-        dloss = data_loss(kp, u, P, A0)
+        ploss = pde_loss(kp, u, A, A0, Kr)
+        dloss = data_loss(u, A)
         loss = ploss + dloss
         loss.backward()
         optim.step()
@@ -119,7 +135,10 @@ def main():
         scheduler.step()
 
         if epoch % report_every == 0:
-            print(f"epoch {epoch:06d} loss {l:.4e}")
+            if fit_Kr:
+                print(f"epoch {epoch:06d} loss {l:.4e}, Kr = {Kr.item()}")
+            else:
+                print(f"epoch {epoch:06d} loss {l:.4e}")
 
     train_hist = {
         'epoch': epochs,
@@ -131,13 +150,12 @@ def main():
     pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
 
     x = data_x[0,:]
-    xm = (x[:-1] + x[1:]) / 2
     t = data_t[:,0]
 
-    kp_ = kp.detach().numpy() * l_scale**3 * t_scale**2 / m_scale
+    kp_ = kp.detach().numpy() * k_scale
 
     fig, ax = plt.subplots()
-    ax.plot(xm, kp_)
+    ax.plot(x, kp_)
     ax.set_xlabel(r"$x$ (mm)")
     ax.set_ylabel(r"$k_p$ (m$^3$ s$^2$ / kg)")
     plt.tight_layout()
@@ -170,37 +188,14 @@ def main():
     plt.savefig(os.path.join(out_dir, "du.pdf"))
     plt.close()
 
-    P = P.detach().numpy() * m_scale / l_scale / t_scale**2
-    dP = np.abs(P - data_P * m_scale / l_scale / t_scale**2)
+    A = A.detach().numpy() * l_scale**2
+    dA = np.abs(A - data_A * l_scale**2)
 
-    fig, ax = plt.subplots()
-    im = ax.imshow(P.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
-    ax.set_xlabel(r"$t$ (ms)")
-    ax.set_ylabel(r"$x$ (mm)")
-    fig.colorbar(im, ax=ax, label=r"$P$ (Pa)")
-    plt.tight_layout()
-    plt.savefig(os.path.join(out_dir, "P.pdf"))
-    plt.close()
-
-    fig, ax = plt.subplots()
-    im = ax.imshow(dP.T, extent=(t0, t1, x0, x1), origin='lower', aspect='auto', cmap='jet')
-    ax.set_xlabel(r"$t$ (ms)")
-    ax.set_ylabel(r"$x$ (mm)")
-    fig.colorbar(im, ax=ax, label=r"$|\delta P|$ (Pa)")
-    plt.tight_layout()
-    plt.savefig(os.path.join(out_dir, "dP.pdf"))
-    plt.close()
-
-    Pm = (P[:,1:] + P[:,:-1]) / 2
-    A = A0.item() * l_scale**2 + kp_ * Pm
     A *= 1e6 # m^2 -> mm^2
-
-    data_Am = (data_A[:,1:] + data_A[:,:-1]) / 2
-    data_Am *= l_scale**2 * 1e6
-    dA = np.abs(A - data_Am)
+    dA *= 1e6 # m^2 -> mm^2
 
     fig, ax = plt.subplots()
-    im = ax.imshow(A.T, extent=(t0, t1, xm[0], xm[-1]), origin='lower', aspect='auto', cmap='jet')
+    im = ax.imshow(A.T, extent=(t0, t1, x[0], x[-1]), origin='lower', aspect='auto', cmap='jet')
     ax.set_xlabel(r"$t$ (ms)")
     ax.set_ylabel(r"$x$ (mm)")
     fig.colorbar(im, ax=ax, label=r"$A$ (mm$^2$)")
@@ -209,7 +204,7 @@ def main():
     plt.close()
 
     fig, ax = plt.subplots()
-    im = ax.imshow(dA.T, extent=(t0, t1, xm[0], xm[-1]), origin='lower', aspect='auto', cmap='jet')
+    im = ax.imshow(dA.T, extent=(t0, t1, x[0], x[-1]), origin='lower', aspect='auto', cmap='jet')
     ax.set_xlabel(r"$t$ (ms)")
     ax.set_ylabel(r"$x$ (mm)")
     fig.colorbar(im, ax=ax, label=r"$|\delta A|$ (mm$^2$)")
