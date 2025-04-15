@@ -12,7 +12,9 @@ class NIFTI_CODE:
     edema = 3
 
 class SEG_CODE:
-    pass
+    healthy = 0
+    edema = 1
+    tumor = 2
 
 def find_data_paths(patient_path):
     seg_path = os.path.join(patient_path, "segm.nii.gz")
@@ -33,55 +35,69 @@ def read_nifti(path):
     volume_array = nifti_img.get_fdata()
     return volume_array, nifti_img.affine, nifti_img.header
 
-def crop_scale_data(seg, gm, wm, threshold, scale):
+def _get_smallest_rectangle_with_all_nonhealthy_cells(seg):
+    # select "interesting" region
+    idx = np.isin(seg, [SEG_CODE.edema, SEG_CODE.tumor])
+
+    xmin = np.argmax(idx.any(2).any(1).astype(int))
+    xmax = seg.shape[0] - np.argmax(idx.any(2).any(1).astype(int)[::-1])
+
+    ymin = np.argmax(idx.any(2).any(0).astype(int))
+    ymax = seg.shape[1] - np.argmax(idx.any(2).any(0).astype(int)[::-1])
+
+    zmin = np.argmax(idx.any(1).any(0).astype(int))
+    zmax = seg.shape[2] - np.argmax(idx.any(1).any(0).astype(int)[::-1])
+    return xmin, xmax, ymin, ymax, zmin, zmax
+
+
+def _get_scaled_range(lo, hi, scale):
+    lo_new = np.ceil(lo - ((lo + hi)/2 - lo) * (scale - 1)).astype(int)
+    hi_new = np.ceil(hi + ((lo + hi)/2 - lo) * (scale - 1)).astype(int)
+    return lo_new, hi_new
+
+def crop_scale_data(seg, gm, wm, scale):
     """
-    Crop data to keep only grid sizes that are above a given threshold.
+    Crop data to only keep region of the grid that contains tumor or necrotic cells.
+
+    scale: used to select a region that is larger/smaller than the smallest rectangle that contains the tumor cells.
+    if Lx, Ly, Lz is the size of this rectangle, the selected cropped data will be the rectangle with the same center,
+    and with size scale * Lx, scale * Ly, scale * Lz.
     """
-    idx = seg > threshold
-    # get x range
-    x_min = np.argmax(idx.any(2).any(1).astype(int))
-    x_max = seg.shape[0] - np.argmax(idx.any(2).any(1).astype(int)[::-1])
-    # get y range
-    y_min = np.argmax(idx.any(2).any(0).astype(int))
-    y_max = seg.shape[1] - np.argmax(idx.any(2).any(0).astype(int)[::-1])
-    # get z range
-    z_min = np.argmax(idx.any(1).any(0).astype(int))
-    z_max = seg.shape[2] - np.argmax(idx.any(1).any(0).astype(int)[::-1])
+    xmin, xmax, ymin, ymax, zmin, zmax = _get_smallest_rectangle_with_all_nonhealthy_cells(seg)
 
-    if scale == 1:
-        return seg[x_min:x_max,y_min:y_max,z_min:z_max], \
-            gm[x_min:x_max,y_min:y_max,z_min:z_max], \
-            wm[x_min:x_max,y_min:y_max,z_min:z_max]
-    else:
-        x_min_new = np.ceil(x_min - ((x_min + x_max)/2 - x_min)*(scale-1)).astype(int)
-        x_max_new = np.ceil(x_max + ((x_min + x_max)/2 - x_min)*(scale-1)).astype(int)
+    xmin, xmax = _get_scaled_range(xmin, xmax, scale)
+    ymin, ymax = _get_scaled_range(ymin, ymax, scale)
+    zmin, zmax = _get_scaled_range(zmin, zmax, scale)
 
-        y_min_new = np.ceil(y_min - ((y_min + y_max)/2 - y_min)*(scale-1)).astype(int)
-        y_max_new = np.ceil(y_max + ((y_min + y_max)/2 - y_min)*(scale-1)).astype(int)
-
-        y_min_new = np.ceil(y_min - ((y_min + y_max)/2 - y_min)*(scale-1)).astype(int)
-        y_max_new = np.ceil(y_max + ((y_min + y_max)/2 - y_min)*(scale-1)).astype(int)
-
-        z_min_new = np.ceil(z_min - ((z_min + z_max)/2 - z_min)*(scale-1)).astype(int)
-        z_max_new = np.ceil(z_max + ((z_min + z_max)/2 - z_min)*(scale-1)).astype(int)
-
-        return seg[x_min_new:x_max_new,y_min_new:y_max_new,z_min_new:z_max_new], \
-            gm[x_min_new:x_max_new,y_min_new:y_max_new,z_min_new:z_max_new], \
-            wm[x_min_new:x_max_new,y_min_new:y_max_new,z_min_new:z_max_new]
+    return seg[xmin:xmax,ymin:ymax,zmin:zmax], \
+        gm[xmin:xmax,ymin:ymax,zmin:zmax], \
+        wm[xmin:xmax,ymin:ymax,zmin:zmax]
 
 
-def load_data(data_path, trim_threshold=0.1, trim_scale=1.5):
+def restore_cropped_data(seg_original, scale, trimmed_seg):
+    xmin, xmax, ymin, ymax, zmin, zmax = _get_smallest_rectangle_with_all_nonhealthy_cells(seg_original)
+
+    xmin, xmax = _get_scaled_range(xmin, xmax, scale)
+    ymin, ymax = _get_scaled_range(ymin, ymax, scale)
+    zmin, zmax = _get_scaled_range(zmin, zmax, scale)
+
+    seg = np.zeros_like(seg_original)
+    seg[xmin:xmax,ymin:ymax,zmin:zmax] = trimmed_seg
+    return seg
+
+
+def load_data(data_path, trim_scale=1.5):
     seg_path, gm_path, wm_path = find_data_paths(data_path)
 
     seg, seg_affine, seg_header = read_nifti(seg_path)
     gm, _, _ = read_nifti(gm_path)
     wm, _, _ = read_nifti(wm_path)
 
-    seg = np.where(seg == NIFTI_CODE.edema, 1,
-                   np.where(np.isin(seg, [NIFTI_CODE.enhancing, NIFTI_CODE.necrotic]), 2,
-                            0))
+    seg = np.where(seg == NIFTI_CODE.edema, SEG_CODE.edema,
+                   np.where(np.isin(seg, [NIFTI_CODE.enhancing, NIFTI_CODE.necrotic]), SEG_CODE.tumor,
+                            SEG_CODE.healthy))
 
-    trimmed_seg, trimmed_gm, trimmed_wm = crop_scale_data(seg, gm, wm, trim_threshold, trim_scale)
+    trimmed_seg, trimmed_gm, trimmed_wm = crop_scale_data(seg, gm, wm, trim_scale)
 
     meta_data = {
         'nifti_affine': seg_affine,
