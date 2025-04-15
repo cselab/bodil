@@ -36,17 +36,22 @@ def read_nifti(path):
     return volume_array, nifti_img.affine, nifti_img.header
 
 def _get_smallest_rectangle_with_all_nonhealthy_cells(seg):
+    nx, ny, nz = seg.shape
     # select "interesting" region
     idx = np.isin(seg, [SEG_CODE.edema, SEG_CODE.tumor])
 
-    xmin = np.argmax(idx.any(2).any(1).astype(int))
-    xmax = seg.shape[0] - np.argmax(idx.any(2).any(1).astype(int)[::-1])
+    idxx = idx.any((1,2))
+    xmin = np.argmax(idxx)
+    xmax = nx - np.argmax(idxx[::-1])
 
-    ymin = np.argmax(idx.any(2).any(0).astype(int))
-    ymax = seg.shape[1] - np.argmax(idx.any(2).any(0).astype(int)[::-1])
+    idxy = idx.any((0,2))
+    ymin = np.argmax(idxy)
+    ymax = ny - np.argmax(idxy[::-1])
 
-    zmin = np.argmax(idx.any(1).any(0).astype(int))
-    zmax = seg.shape[2] - np.argmax(idx.any(1).any(0).astype(int)[::-1])
+    idxz = idx.any((0,1))
+    zmin = np.argmax(idxz)
+    zmax = nz - np.argmax(idxz[::-1])
+
     return xmin, xmax, ymin, ymax, zmin, zmax
 
 
