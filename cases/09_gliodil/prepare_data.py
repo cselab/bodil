@@ -131,10 +131,14 @@ def main():
     parser.add_argument('data_path', type=str, help='path to .nii files')
     args = parser.parse_args()
 
-    meta_data, raw_data, trimmed_data = load_data(args.data_path)
+    trim_scale = 1.5
+    meta_data, raw_data, trimmed_data = load_data(args.data_path, trim_scale)
 
+    # test to reconstruct seg from trimmed data.
+    seg = restore_cropped_data(raw_data['seg'], trim_scale, trimmed_data['seg'])
 
-
+    nifti_file = nib.Nifti1Image(seg, meta_data['nifti_affine'], header=meta_data['nifti_header'])
+    nib.save(nifti_file, 'test.nii')
 
 
 if __name__ == '__main__':
