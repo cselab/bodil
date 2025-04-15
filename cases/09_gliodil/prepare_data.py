@@ -54,7 +54,6 @@ def _get_smallest_rectangle_with_all_nonhealthy_cells(seg):
 
     return xmin, xmax, ymin, ymax, zmin, zmax
 
-
 def _get_scaled_range(lo, hi, scale):
     lo_new = np.ceil(lo - ((lo + hi)/2 - lo) * (scale - 1)).astype(int)
     hi_new = np.ceil(hi + ((lo + hi)/2 - lo) * (scale - 1)).astype(int)
@@ -78,7 +77,6 @@ def crop_scale_data(seg, gm, wm, scale):
         gm[xmin:xmax,ymin:ymax,zmin:zmax], \
         wm[xmin:xmax,ymin:ymax,zmin:zmax]
 
-
 def restore_cropped_data(seg_original, scale, trimmed_seg):
     xmin, xmax, ymin, ymax, zmin, zmax = _get_smallest_rectangle_with_all_nonhealthy_cells(seg_original)
 
@@ -89,7 +87,6 @@ def restore_cropped_data(seg_original, scale, trimmed_seg):
     seg = np.zeros_like(seg_original)
     seg[xmin:xmax,ymin:ymax,zmin:zmax] = trimmed_seg
     return seg
-
 
 def load_data(data_path, trim_scale=1.5):
     seg_path, gm_path, wm_path = find_data_paths(data_path)
@@ -123,9 +120,6 @@ def load_data(data_path, trim_scale=1.5):
 
     return meta_data, raw_data, trimmed_data
 
-
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data_path', type=str, help='path to .nii files')
@@ -139,7 +133,6 @@ def main():
 
     nifti_file = nib.Nifti1Image(seg, meta_data['nifti_affine'], header=meta_data['nifti_header'])
     nib.save(nifti_file, 'test.nii')
-
 
 if __name__ == '__main__':
     main()
