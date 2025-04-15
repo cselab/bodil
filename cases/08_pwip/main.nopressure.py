@@ -121,7 +121,7 @@ def main():
 
     for epoch in epochs:
         optim.zero_grad()
-        ploss = pde_loss(kp, u, A, A0, Kr)
+        ploss = pde_loss(kp=kp, u=u, A=A, A0=A0, Kr=Kr)
         dloss = data_loss(u, A)
         loss = ploss + dloss
         loss.backward()
