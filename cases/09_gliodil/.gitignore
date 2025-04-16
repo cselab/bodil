@@ -3,3 +3,4 @@ __MACOSX
 data_GliODIL_essential
 *.nii
 *.nii.gz
+*.csv

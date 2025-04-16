@@ -3,6 +3,7 @@
 import argparse
 import numpy as np
 import os
+import pandas as pd
 import torch
 from scipy.ndimage import zoom
 
@@ -31,10 +32,12 @@ def get_matter_portions(gm, wm, threshold, device):
     }
 
 
-def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
+def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
-                num_epochs=1000, lr=1e-2, report_every=10,
-                verbose=True, tend=64.0, lambda_pde=1, lambda_ic=1):
+                num_epochs=100, lr=1e-2, report_every=10,
+                verbose=True, tend=64.0, lambda_pde=100, lambda_ic=100):
+
+    os.makedirs(out_dir, exist_ok=True)
 
     meta_data, raw_data, trimmed_data = load_data(data_path, trim_scale)
 
@@ -203,21 +206,33 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
         if verbose and epoch % report_every == 0:
             print(f"epoch {epoch:06d} loss {l:.4e}")
 
+    train_hist = {
+        'epoch': epochs,
+        'pde_loss': pde_losses,
+        'data_loss': data_losses,
+        'ic_loss': ic_losses,
+        'loss': losses
+    }
+
+    pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
+
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data_path', type=str, help='path to .nii files')
     parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[33, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
+    parser.add_argument('--out-dir', type=str, default='out_gliodil', help='output directory')
     args = parser.parse_args()
 
     Nt, Nx, Ny, Nz = args.NtNxNyNz
+    out_dir = args.out_dir
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     run_gliodil(data_path=args.data_path,
                 Nt=Nt, Nx=Nx, Ny=Ny, Nz=Nz,
-                device=device)
+                device=device, out_dir=out_dir)
 
 if __name__ == '__main__':
     main()
