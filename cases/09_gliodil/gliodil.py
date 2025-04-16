@@ -52,6 +52,17 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
     dz = Lz / Nz
     dt = tend / Nt
 
+    x = np.linspace(0, Lx, Nx, endpoint=False)
+    y = np.linspace(0, Ly, Ny, endpoint=False)
+    z = np.linspace(0, Lz, Nz, endpoint=False)
+
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    X_ = torch.from_numpy(X).to(device)
+    Y_ = torch.from_numpy(Y).to(device)
+    Z_ = torch.from_numpy(Z).to(device)
+
+    assert x[1] - x[0] == dx
+
     print(f"dx = {dx}mm, dy = {dy}mm, dz = {dz}mm")
 
     matter = get_matter_portions(gm, wm, threshold=0.1, device=device)
@@ -108,7 +119,17 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
         return torch.mean(PDE_res**2)
 
     def compute_ic_loss(u, x0, y0, z0):
-        pass
+        dsq = (X_ - x0)**2 + (Y_ - y0)**2 + (Z_ - z0)**2
+
+        # following original gliodil code
+        M = 1500.0
+        Dt = 15.0
+
+        u0 = M / (4 * np.pi * Dt)**(3/2) * torch.exp(-dsq / (4 * Dt))
+        u0 = torch.where(u0 > 0.1, torch.where(u0 < 1.0, u0, 1.0), 0.0)
+        res_ic = u - u0
+
+        return torch.mean(res_ic**2)
 
     def compute_data_loss(u):
         pass
@@ -117,7 +138,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
     # initial guess
     u0 = torch.zeros((Nt, Nx, Ny, Nz))
     depth = int(np.log(min([Nt, Nx, Ny, Nz])) / np.log(2))
-    print(f"depth = {depth}")
+    print(f"Multigrid depth = {depth}")
     mg = MultigridField(u0, loc='nppp', depth=depth)
     mg.to(device)
     mg.set_requires_grad()
@@ -126,12 +147,16 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
     Dw = 0.05
     Dg = 0.01
     rho = 0.01
+    x0 = Lx/2
+    y0 = Ly/2
+    z0 = Lz/2
 
     optim = torch.optim.Adam(mg.params(), lr=lr)
 
     epochs = list(range(num_epochs))
     pde_losses = []
     data_losses = []
+    ic_losses = []
     losses = []
 
     for epoch in epochs:
@@ -139,14 +164,15 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
         u = mg.get()
         ploss = compute_pde_loss(u, Dw=Dw, Dg=Dg, rho=rho)
         #dloss = compute_data_loss(u)
-        #iloss = compute_ic_loss(u, x0, y0, R0)
-        loss = ploss# + dloss + iloss
+        iloss = compute_ic_loss(u, x0, y0, z0)
+        loss = ploss + iloss# + dloss
         loss.backward()
         optim.step()
 
         l = loss.item()
         pde_losses.append(ploss.item())
         #data_losses.append(dloss.item())
+        ic_losses.append(iloss.item())
         losses.append(l)
 
         #scheduler.step(l)
