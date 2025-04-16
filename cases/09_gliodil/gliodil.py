@@ -144,7 +144,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
         alpha_core = torch.minimum(torch.full_like(alpha_core, 1-eps), alpha_core)
         alpha_core = torch.maximum(torch.full_like(alpha_core,   eps), alpha_core)
 
-        alpha_edema = torch.sigmoid((uend - th_edema_lo) / sigma_data) - torch.sigmoid((th_edema_hi - uend) / sigma_data)
+        alpha_edema = torch.sigmoid((uend - th_edema_lo) / sigma_data) - (1 - torch.sigmoid((th_edema_hi - uend) / sigma_data))
         alpha_edema = torch.minimum(torch.full_like(alpha_edema, 1-eps), alpha_edema)
         alpha_edema = torch.maximum(torch.full_like(alpha_edema,   eps), alpha_edema)
 

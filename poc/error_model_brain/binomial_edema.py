@@ -16,25 +16,19 @@ def main():
 
     for sigma in [0.05, 0.02, 0.01]:
         # probability of edema given that y_ij = 1
-        alpha = sigmoid((u - uc1) / sigma) - sigmoid((u - uc2) / sigma)
-        p = alpha
+        alpha = sigmoid((u - uc1) / sigma) - (1 - sigmoid((uc2 - u) / sigma))
         loss = -np.log(alpha)
         axes[0,0].plot(u, loss, label=fr'$\sigma = {sigma}$')
 
         p = np.exp(- loss)
-        norm = np.sum((p[:-1] + p[1:]) * np.diff(u))
-        p /= norm
         axes[1,0].plot(u, p, label=fr'$\sigma = {sigma}$')
 
         # probability of edema given that y_ij = 0
         alpha = sigmoid((uc1 - u) / sigma) + sigmoid((u - uc2) / sigma)
-        p = alpha
         loss = -np.log(alpha)
         axes[0,1].plot(u, loss, label=fr'$\sigma = {sigma}$')
 
         p = np.exp(- loss)
-        norm = np.sum((p[:-1] + p[1:]) * np.diff(u))
-        p /= norm
         axes[1,1].plot(u, p, label=fr'$\sigma = {sigma}$')
 
     ax = axes[0,0]
