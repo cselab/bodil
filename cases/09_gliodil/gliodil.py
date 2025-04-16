@@ -34,7 +34,7 @@ def get_matter_portions(gm, wm, threshold, device):
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
                 trim_scale=1.5,
                 num_epochs=1000, lr=1e-2, report_every=10,
-                verbose=True, tend=64.0):
+                verbose=True, tend=64.0, lambda_pde=1, lambda_ic=1):
 
     meta_data, raw_data, trimmed_data = load_data(data_path, trim_scale)
 
@@ -120,7 +120,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
         u_t = (un - uc) / dt
 
         PDE_res = u_t - diff_term - reac_term
-        return torch.mean(PDE_res**2)
+        return lambda_pde * torch.mean(PDE_res**2)
 
     def compute_ic_loss(u, x0, y0, z0):
         dsq = (X_ - x0)**2 + (Y_ - y0)**2 + (Z_ - z0)**2
@@ -133,7 +133,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
         u0 = torch.where(u0 > 0.1, torch.where(u0 < 1.0, u0, 1.0), 0.0)
         res_ic = u - u0
 
-        return torch.mean(res_ic**2)
+        return lambda_ic * torch.mean(res_ic**2)
 
     def compute_data_loss(u, th_core, th_edema_lo, th_edema_hi):
         sigma_data = 1/50
@@ -155,9 +155,10 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
 
 
     # initial guess
-    u0 = torch.zeros((Nt, Nx, Ny, Nz))
+    u0 = torch.zeros((Nt, Nx, Ny, Nz)) + 0.5
     depth = int(np.log(min([Nt, Nx, Ny, Nz])) / np.log(2))
-    print(f"Multigrid depth = {depth}")
+    if verbose:
+        print(f"Multigrid depth = {depth}")
     mg = MultigridField(u0, loc='nppp', depth=depth)
     mg.to(device)
     mg.set_requires_grad()
