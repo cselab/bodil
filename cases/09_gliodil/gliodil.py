@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import argparse
+import nibabel as nib
 import numpy as np
 import os
 import pandas as pd
 import torch
 from scipy.ndimage import zoom
 
-from prepare_data import load_data, SEG_CODE
+from prepare_data import load_data, SEG_CODE, restore_cropped_data
 from uq_odil.multigrid import MultigridField
 
 
@@ -39,6 +40,27 @@ def center_of_mass(X, Y, Z, mask):
     y = np.sum(Y * mask) / V
     z = np.sum(Z * mask) / V
     return x, y, z
+
+
+def characteristic_diffusion_reaction(seg):
+    volume_edema = np.sum(np.where(seg == SEG_CODE.edema, 1.0, 0.0))
+    volume_core  = np.sum(np.where(seg == SEG_CODE.core , 1.0, 0.0))
+    D = volume_edema / volume_core
+    rho = 1
+    return D, rho
+
+
+def dump_nii(u, th_lo, th_hi, raw_data, meta_data, trim_scale, trimmed_shape, path):
+    nx, ny, nz = u.shape
+    seg_lowres = np.where(u < th_lo, SEG_CODE.healthy, np.where(u < th_hi, SEG_CODE.edema, SEG_CODE.core))
+    Nx, Ny, Nz = trimmed_shape
+
+    trimmed_seg = zoom(seg_lowres, (Nx/nx, Ny/ny, Nz/nz), order=0)
+    seg = restore_cropped_data(raw_data['seg'], trim_scale, trimmed_seg)
+
+    nifti_file = nib.Nifti1Image(seg, meta_data['nifti_affine'], header=meta_data['nifti_header'])
+    nib.save(nifti_file, path)
+
 
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
@@ -75,13 +97,28 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     assert x[1] - x[0] == dx
 
-    print(f"dx = {dx}mm, dy = {dy}mm, dz = {dz}mm")
+    print(f"dx = {dx:.2f}mm, dy = {dy:.2f}mm, dz = {dz:.2f}mm")
 
     matter = get_matter_portions(gm, wm, threshold=0.1, device=device)
     seg_ = torch.from_numpy(seg).to(device)
 
     mask_core = torch.where(seg_ == SEG_CODE.core, 1.0, 0.0)
     mask_edema = torch.where(seg_ == SEG_CODE.edema, 1.0, 0.0)
+
+    # parameters
+    #Dw, rho = characteristic_diffusion_reaction(seg)
+    Dw = 0.05
+    Dg = 0.01
+    rho = 0.01
+    x0, y0, z0 = center_of_mass(X, Y, Z, np.where(seg == SEG_CODE.core, 1.0, 0.0))
+    th_core = 0.7
+    th_edema_lo = 0.3
+    th_edema_hi = 0.7
+
+    if verbose:
+        print("Initial guess for parameters:")
+        print(f"    (x0, y0, z0) = ({x0:.1f}, {y0:.1f}, {z0:.1f})")
+
 
     def compute_pde_loss(u, Dw, Dg, rho):
         # [c]urrent time
@@ -175,19 +212,6 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     mg.to(device)
     mg.set_requires_grad()
 
-    # TODO
-    Dw = 0.05
-    Dg = 0.01
-    rho = 0.01
-    x0, y0, z0 = center_of_mass(X, Y, Z, np.where(seg == SEG_CODE.core, 1.0, 0.0))
-    th_core = 0.7
-    th_edema_lo = 0.3
-    th_edema_hi = 0.7
-
-    if verbose:
-        print("Initial guess for parameters:")
-        print(f"(x0, y0, z0) = ({x0:.1f}, {y0:.1f}, {z0:.1f})")
-
     optim = torch.optim.Adam(mg.params(), lr=lr)
 
     epochs = list(range(num_epochs))
@@ -226,6 +250,14 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     }
 
     pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
+
+    u = mg.get().detach().cpu().numpy()
+    uend = u[-1,:,:,:]
+
+    dump_nii(u=uend, th_lo=th_edema_lo, th_hi=th_edema_hi,
+             raw_data=raw_data, meta_data=meta_data,
+             trim_scale=trim_scale, trimmed_shape=trimmed_shape,
+             path=os.path.join(out_dir, 'seg_final.nii'))
 
 
 
