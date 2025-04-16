@@ -6,7 +6,7 @@ import os
 import torch
 from scipy.ndimage import zoom
 
-from prepare_data import load_data
+from prepare_data import load_data, SEG_CODE
 from uq_odil.multigrid import MultigridField
 
 def get_matter_portions(gm, wm, threshold, device):
@@ -66,6 +66,10 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
     print(f"dx = {dx}mm, dy = {dy}mm, dz = {dz}mm")
 
     matter = get_matter_portions(gm, wm, threshold=0.1, device=device)
+    seg_ = torch.from_numpy(seg).to(device)
+
+    mask_core = torch.where(seg_ == SEG_CODE.core, 1.0, 0.0)
+    mask_edema = torch.where(seg_ == SEG_CODE.edema, 1.0, 0.0)
 
     def compute_pde_loss(u, Dw, Dg, rho):
         # [c]urrent time
@@ -131,8 +135,23 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
 
         return torch.mean(res_ic**2)
 
-    def compute_data_loss(u):
-        pass
+    def compute_data_loss(u, th_core, th_edema_lo, th_edema_hi):
+        sigma_data = 1/50
+        eps = 1e-6
+        uend = u[-1,:,:,:]
+
+        alpha_core = torch.sigmoid((uend - th_core) / sigma_data)
+        alpha_core = torch.minimum(torch.full_like(alpha_core, 1-eps), alpha_core)
+        alpha_core = torch.maximum(torch.full_like(alpha_core,   eps), alpha_core)
+
+        alpha_edema = torch.sigmoid((uend - th_edema_lo) / sigma_data) - torch.sigmoid((th_edema_hi - uend) / sigma_data)
+        alpha_edema = torch.minimum(torch.full_like(alpha_edema, 1-eps), alpha_edema)
+        alpha_edema = torch.maximum(torch.full_like(alpha_edema,   eps), alpha_edema)
+
+        neg_loss  = mask_core  * torch.log(alpha_core)  + (1-mask_core)  * torch.log(1-alpha_core)
+        neg_loss += mask_edema * torch.log(alpha_edema) + (1-mask_edema) * torch.log(1-alpha_edema)
+
+        return -torch.mean(neg_loss)
 
 
     # initial guess
@@ -150,6 +169,9 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
     x0 = Lx/2
     y0 = Ly/2
     z0 = Lz/2
+    th_core = 0.7
+    th_edema_lo = 0.3
+    th_edema_hi = 0.7
 
     optim = torch.optim.Adam(mg.params(), lr=lr)
 
@@ -163,15 +185,15 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device,
         optim.zero_grad()
         u = mg.get()
         ploss = compute_pde_loss(u, Dw=Dw, Dg=Dg, rho=rho)
-        #dloss = compute_data_loss(u)
+        dloss = compute_data_loss(u, th_core, th_edema_lo, th_edema_hi)
         iloss = compute_ic_loss(u, x0, y0, z0)
-        loss = ploss + iloss# + dloss
+        loss = ploss + iloss + dloss
         loss.backward()
         optim.step()
 
         l = loss.item()
         pde_losses.append(ploss.item())
-        #data_losses.append(dloss.item())
+        data_losses.append(dloss.item())
         ic_losses.append(iloss.item())
         losses.append(l)
 

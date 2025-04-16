@@ -14,7 +14,7 @@ class NIFTI_CODE:
 class SEG_CODE:
     healthy = 0
     edema = 1
-    tumor = 2
+    core = 2
 
 def find_data_paths(patient_path):
     seg_path = os.path.join(patient_path, "segm.nii.gz")
@@ -38,7 +38,7 @@ def read_nifti(path):
 def _get_smallest_rectangle_with_all_nonhealthy_cells(seg):
     nx, ny, nz = seg.shape
     # select "interesting" region
-    idx = np.isin(seg, [SEG_CODE.edema, SEG_CODE.tumor])
+    idx = np.isin(seg, [SEG_CODE.edema, SEG_CODE.core])
 
     idxx = idx.any((1,2))
     xmin = np.argmax(idxx)
@@ -96,7 +96,7 @@ def load_data(data_path, trim_scale=1.5):
     wm, _, _ = read_nifti(wm_path)
 
     seg = np.where(seg == NIFTI_CODE.edema, SEG_CODE.edema,
-                   np.where(np.isin(seg, [NIFTI_CODE.enhancing, NIFTI_CODE.necrotic]), SEG_CODE.tumor,
+                   np.where(np.isin(seg, [NIFTI_CODE.enhancing, NIFTI_CODE.necrotic]), SEG_CODE.core,
                             SEG_CODE.healthy))
 
     trimmed_seg, trimmed_gm, trimmed_wm = crop_scale_data(seg, gm, wm, trim_scale)
