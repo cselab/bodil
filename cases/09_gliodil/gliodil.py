@@ -10,6 +10,7 @@ from scipy.ndimage import zoom
 from prepare_data import load_data, SEG_CODE
 from uq_odil.multigrid import MultigridField
 
+
 def get_matter_portions(gm, wm, threshold, device):
     """
     threshold: crop density to zero when wm + gm <= threshold
@@ -30,6 +31,14 @@ def get_matter_portions(gm, wm, threshold, device):
         'gm_t_y': get_tilda(gm, wm, 1),
         'gm_t_z': get_tilda(gm, wm, 2)
     }
+
+
+def center_of_mass(X, Y, Z, mask):
+    V = np.sum(mask)
+    x = np.sum(X * mask) / V
+    y = np.sum(Y * mask) / V
+    z = np.sum(Z * mask) / V
+    return x, y, z
 
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
@@ -170,12 +179,14 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     Dw = 0.05
     Dg = 0.01
     rho = 0.01
-    x0 = Lx/2
-    y0 = Ly/2
-    z0 = Lz/2
+    x0, y0, z0 = center_of_mass(X, Y, Z, np.where(seg == SEG_CODE.core, 1.0, 0.0))
     th_core = 0.7
     th_edema_lo = 0.3
     th_edema_hi = 0.7
+
+    if verbose:
+        print("Initial guess for parameters:")
+        print(f"(x0, y0, z0) = ({x0:.1f}, {y0:.1f}, {z0:.1f})")
 
     optim = torch.optim.Adam(mg.params(), lr=lr)
 
