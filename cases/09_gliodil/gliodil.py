@@ -68,7 +68,7 @@ LOOKUP_TABLE default
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
                 num_epochs=3000, lr=1e-2, report_every=100,
-                verbose=True, tend=64.0, lambda_pde=100, lambda_ic=100):
+                verbose=True, tend=50.0, lambda_pde=100, lambda_ic=100):
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -110,10 +110,10 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     mask_edema = torch.where(seg_ == SEG_CODE.edema, 1.0, 0.0)
 
     # parameters
-    #Dw, rho = characteristic_diffusion_reaction(seg)
-    Dw  = params_ig['Dw']  * tend / T_ig
-    Dg  = params_ig['Dg']  * tend / T_ig
-    rho = params_ig['rho'] * tend / T_ig
+    tscale = tend / T_ig
+    Dw  = params_ig['Dw']  * tscale
+    Dg  = params_ig['Dg']  * tscale
+    rho = params_ig['rho'] * tscale
     x0, y0, z0 = params_ig['x0'], params_ig['y0'], params_ig['z0']
     th_core = params_ig['th_hi']
     th_edema_lo = params_ig['th_lo']
