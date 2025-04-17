@@ -134,6 +134,8 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
     Dw = volume_edema / volume_core
     rho = 1
     Dg = Dw / 100
+    th_lo = 0.3
+    th_hi = 0.65
 
     dtmax = max([dx, dy, dz])**2 / (2 * Dw)
     assert dt < dtmax
@@ -147,7 +149,7 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
 
     endstep = maxsteps
     for step in range(maxsteps):
-        Dcore, Dedema = compute_dice_scores(u, seg, th_lo=0.3, th_hi=0.65)
+        Dcore, Dedema = compute_dice_scores(u, seg, th_lo=th_lo, th_hi=th_hi)
         score = wDcore * Dcore + wDedema * Dedema
 
         trace_u.append(u.copy())
@@ -193,7 +195,9 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
         'dz': dz,
         'x0': x0,
         'y0': y0,
-        'z0': z0
+        'z0': z0,
+        'th_lo': th_lo,
+        'th_hi': th_hi
     }
 
     return tend, uodil, params

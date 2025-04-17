@@ -10,7 +10,7 @@ from scipy.ndimage import zoom
 
 from prepare_data import load_data, SEG_CODE, restore_cropped_data
 from uq_odil.multigrid import MultigridField
-
+from initial_guess import get_initial_guess
 
 def get_matter_portions(gm, wm, threshold, device):
     """
@@ -32,23 +32,6 @@ def get_matter_portions(gm, wm, threshold, device):
         'gm_t_y': get_tilda(gm, wm, 1),
         'gm_t_z': get_tilda(gm, wm, 2)
     }
-
-
-def center_of_mass(X, Y, Z, mask):
-    V = np.sum(mask)
-    x = np.sum(X * mask) / V
-    y = np.sum(Y * mask) / V
-    z = np.sum(Z * mask) / V
-    return x, y, z
-
-
-def characteristic_diffusion_reaction(seg):
-    volume_edema = np.sum(np.where(seg == SEG_CODE.edema, 1.0, 0.0))
-    volume_core  = np.sum(np.where(seg == SEG_CODE.core , 1.0, 0.0))
-    D = volume_edema / volume_core
-    rho = 1
-    return D, rho
-
 
 def dump_nii(u, th_lo, th_hi, raw_data, meta_data, trim_scale, trimmed_shape, path):
     nx, ny, nz = u.shape
@@ -90,6 +73,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     os.makedirs(out_dir, exist_ok=True)
 
+    T_ig, u_ig, params_ig = get_initial_guess(data_path, Nx, Ny, Nz, trim_scale=trim_scale, Nt_ODIL=Nt, verbose=verbose)
+
     meta_data, raw_data, trimmed_data = load_data(data_path, trim_scale)
 
     # adjust data
@@ -127,13 +112,13 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     # parameters
     #Dw, rho = characteristic_diffusion_reaction(seg)
-    Dw = 0.05
-    Dg = 0.01
-    rho = 0.01
-    x0, y0, z0 = center_of_mass(X, Y, Z, np.where(seg == SEG_CODE.core, 1.0, 0.0))
-    th_core = 0.7
-    th_edema_lo = 0.3
-    th_edema_hi = 0.7
+    Dw  = params_ig['Dw']  * tend / T_ig
+    Dg  = params_ig['Dg']  * tend / T_ig
+    rho = params_ig['rho'] * tend / T_ig
+    x0, y0, z0 = params_ig['x0'], params_ig['y0'], params_ig['z0']
+    th_core = params_ig['th_hi']
+    th_edema_lo = params_ig['th_lo']
+    th_edema_hi = params_ig['th_hi']
 
     if verbose:
         print("Initial guess for parameters:")
@@ -224,7 +209,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
 
     # initial guess
-    u0 = torch.zeros((Nt, Nx, Ny, Nz)) + 0.5
+    u0 = torch.from_numpy(u_ig)
     depth = int(np.log(min([Nt, Nx, Ny, Nz])) / np.log(2))
     if verbose:
         print(f"Multigrid depth = {depth}")
@@ -232,7 +217,10 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     mg.to(device)
     mg.set_requires_grad()
 
-    optim = torch.optim.Adam(mg.params(), lr=lr)
+    params = torch.tensor([Dw, Dw/Dg, rho, x0, y0, z0], requires_grad=True)
+
+    optim = torch.optim.Adam(mg.params() + [params], lr=lr)
+    #optim = torch.optim.Adam(mg.params(), lr=lr)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -243,6 +231,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     for epoch in epochs:
         optim.zero_grad()
         u = mg.get()
+        Dw, R, rho, x0, y0, z0 = params
+        Dg = Dw / R
         ploss = compute_pde_loss(u, Dw=Dw, Dg=Dg, rho=rho)
         dloss = compute_data_loss(u, th_core, th_edema_lo, th_edema_hi)
         iloss = compute_ic_loss(u, x0, y0, z0)
@@ -259,7 +249,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
         #scheduler.step(l)
 
         if verbose and epoch % report_every == 0:
-            print(f"epoch {epoch:06d} loss {l:.4e}")
+            params_str = ''.join(f"{v:.3f} " for v in params.detach().numpy())
+            print(f"epoch {epoch:06d} loss {l:.4e}, params {params_str}")
 
     train_hist = {
         'epoch': epochs,
@@ -273,13 +264,6 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     u = mg.get().detach().cpu().numpy()
     uend = u[-1,:,:,:]
-
-    # dump_nii(u=uend, th_lo=th_edema_lo, th_hi=th_edema_hi,
-    #          raw_data=raw_data, meta_data=meta_data,
-    #          trim_scale=trim_scale, trimmed_shape=trimmed_shape,
-    #          path=os.path.join(out_dir, 'seg_final.nii'))
-
-    # dump_vtk(uend, dx, dy, dz, path=os.path.join(out_dir, 'seg_final.vtk'))
 
     for it in range(Nt):
         dump_vtk(u[it], dx, dy, dz, path=os.path.join(out_dir, f'seg_{it:04d}.vtk'))
