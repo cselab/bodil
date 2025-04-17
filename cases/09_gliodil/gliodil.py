@@ -61,6 +61,26 @@ def dump_nii(u, th_lo, th_hi, raw_data, meta_data, trim_scale, trimmed_shape, pa
     nifti_file = nib.Nifti1Image(seg, meta_data['nifti_affine'], header=meta_data['nifti_header'])
     nib.save(nifti_file, path)
 
+def dump_vtk(u, dx, dy, dz, path):
+    nx, ny, nz = u.shape
+    num_points = nx * ny * nz
+    spacing = (dx, dy, dz)
+    origin = (0.0, 0.0, 0.0)
+
+    with open(path, "wb") as f:
+        header = f"""# vtk DataFile Version 3.0
+Binary uniform grid
+BINARY
+DATASET STRUCTURED_POINTS
+DIMENSIONS {nx} {ny} {nz}
+ORIGIN {origin[0]} {origin[1]} {origin[2]}
+SPACING {spacing[0]} {spacing[1]} {spacing[2]}
+POINT_DATA {num_points}
+SCALARS u float
+LOOKUP_TABLE default
+"""
+        f.write(header.encode("utf-8"))
+        f.write(u.astype('>f4').tobytes())  # '>f4' = big-endian float32
 
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
@@ -254,11 +274,15 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     u = mg.get().detach().cpu().numpy()
     uend = u[-1,:,:,:]
 
-    dump_nii(u=uend, th_lo=th_edema_lo, th_hi=th_edema_hi,
-             raw_data=raw_data, meta_data=meta_data,
-             trim_scale=trim_scale, trimmed_shape=trimmed_shape,
-             path=os.path.join(out_dir, 'seg_final.nii'))
+    # dump_nii(u=uend, th_lo=th_edema_lo, th_hi=th_edema_hi,
+    #          raw_data=raw_data, meta_data=meta_data,
+    #          trim_scale=trim_scale, trimmed_shape=trimmed_shape,
+    #          path=os.path.join(out_dir, 'seg_final.nii'))
 
+    # dump_vtk(uend, dx, dy, dz, path=os.path.join(out_dir, 'seg_final.vtk'))
+
+    for it in range(Nt):
+        dump_vtk(u[it], dx, dy, dz, path=os.path.join(out_dir, f'seg_{it:04d}.vtk'))
 
 
 def main():
