@@ -185,7 +185,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
         u0 = M / (4 * np.pi * Dt)**(3/2) * torch.exp(-dsq / (4 * Dt))
         u0 = torch.where(u0 > 0.1, torch.where(u0 < 1.0, u0, 1.0), 0.0)
-        res_ic = u - u0
+        res_ic = u[0,:,:,:] - u0
 
         return lambda_ic * torch.mean(res_ic**2)
 
@@ -220,7 +220,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     params = torch.tensor([Dw, Dw/Dg, rho, x0, y0, z0], requires_grad=True)
 
     optim = torch.optim.Adam(mg.params() + [params], lr=lr)
-    #optim = torch.optim.Adam(mg.params(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=10, min_lr=1e-4)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -246,7 +246,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
         ic_losses.append(iloss.item())
         losses.append(l)
 
-        #scheduler.step(l)
+        scheduler.step(l)
 
         if verbose and epoch % report_every == 0:
             params_str = ''.join(f"{v:.3f} " for v in params.detach().numpy())
