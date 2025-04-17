@@ -95,7 +95,7 @@ def main():
     # unknowns
     u = data_u_.clone().detach()
     u.requires_grad = True
-    kp0 = 5e-8 / k_scale
+    kp0 = 1e-8 / k_scale
     kp = torch.full((nx,), fill_value=float(kp0), requires_grad=True)
 
     if fit_Kr:
