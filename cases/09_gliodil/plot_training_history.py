@@ -22,24 +22,26 @@ def main():
     epoch = df['epoch'].to_numpy()
     pde_loss = df['pde_loss'].to_numpy()
     data_loss = df['data_loss'].to_numpy()
+    ic_loss = df['ic_loss'].to_numpy()
     loss = df['loss'].to_numpy()
 
     if w > 1:
         pde_loss_ = window_average(pde_loss, w)
         data_loss_ = window_average(data_loss, w)
+        ic_loss_ = window_average(ic_loss, w)
         loss_ = window_average(loss, w)
         epoch_ = epoch[:-w+1]
-        print(len(loss_), len(epoch_))
-
 
     fig, ax = plt.subplots()
     if w > 1:
         ax.plot(epoch_, pde_loss_, label='PDE')
         ax.plot(epoch_, data_loss_, label='data')
+        ax.plot(epoch_, ic_loss_, label='IC')
         ax.plot(epoch_, loss_, label='total')
     else:
         ax.plot(epoch, pde_loss, label='PDE')
         ax.plot(epoch, data_loss, label='data')
+        ax.plot(epoch, ic_loss, label='IC')
         ax.plot(epoch, loss, label='total')
     ax.set_xlabel('epoch')
     ax.set_ylabel('loss')

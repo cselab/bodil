@@ -21,8 +21,7 @@ def get_matter_portions(gm, wm, threshold, device):
                        (np.roll(a, -1, axis=axis) + a) / 2,
                        0.0)
         val = torch.from_numpy(val)
-        val.to(device)
-        return val
+        return val.to(device)
 
     return {
         'wm_t_x': get_tilda(wm, gm, 0),
@@ -68,7 +67,7 @@ LOOKUP_TABLE default
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
-                num_epochs=100, lr=1e-2, report_every=10,
+                num_epochs=3000, lr=1e-2, report_every=100,
                 verbose=True, tend=64.0, lambda_pde=100, lambda_ic=100):
 
     os.makedirs(out_dir, exist_ok=True)
@@ -218,6 +217,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     mg.set_requires_grad()
 
     params = torch.tensor([Dw, Dw/Dg, rho, x0, y0, z0], requires_grad=True)
+    params.to(device)
 
     optim = torch.optim.Adam(mg.params() + [params], lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=10, min_lr=1e-4)
