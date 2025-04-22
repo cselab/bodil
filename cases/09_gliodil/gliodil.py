@@ -116,8 +116,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     rho = params_ig['rho'] * tscale
     x0, y0, z0 = params_ig['x0'], params_ig['y0'], params_ig['z0']
     th_core = params_ig['th_hi']
-    th_edema_lo = params_ig['th_lo']
-    th_edema_hi = params_ig['th_hi']
+    th_lo = params_ig['th_lo']
+    th_hi = params_ig['th_hi']
 
     if verbose:
         print("Initial guess for parameters:")
@@ -188,7 +188,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
         return lambda_ic * torch.mean(res_ic**2)
 
-    def compute_data_loss(u, th_core, th_edema_lo, th_edema_hi):
+    def compute_data_loss_experimental(u, th_core, th_edema_lo, th_edema_hi):
         sigma_data = 1/50
         eps = 1e-6
         uend = u[-1,:,:,:]
@@ -206,6 +206,27 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
         return -torch.mean(neg_loss)
 
+    def compute_data_loss(u, th_lo, th_hi):
+        uend = u[-1,:,:,:]
+
+        # map of the range of values uend should take.
+        lower_vals = torch.where(seg_ == SEG_CODE.core, th_hi, torch.where(seg_ == SEG_CODE.edema, th_lo, 0.0))
+        upper_vals = torch.where(seg_ == SEG_CODE.core, 1.0, torch.where(seg_ == SEG_CODE.edema, th_hi, th_lo))
+
+        # residuals of values that are too low
+        relu = torch.nn.functional.relu
+        res_lo = relu(lower_vals - uend)
+        res_hi = relu(uend - upper_vals)
+
+        return torch.mean(res_lo + res_hi)
+
+    def params_bounds_loss(th_lo, th_hi):
+        relu = torch.nn.functional.relu
+
+        return \
+            relu(0.20 - th_lo) + relu(th_lo - 0.5) + \
+            relu(0.50 - th_hi) + relu(th_hi - 0.85)
+
 
     # initial guess
     u0 = torch.from_numpy(u_ig)
@@ -216,7 +237,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     mg.to(device)
     mg.set_requires_grad()
 
-    params = torch.tensor([Dw, Dw/Dg, rho, x0, y0, z0], requires_grad=True)
+    params = torch.tensor([Dw, Dw/Dg, rho, x0, y0, z0, th_lo, th_hi], requires_grad=True)
     params.to(device)
 
     optim = torch.optim.Adam(mg.params() + [params], lr=lr)
@@ -231,12 +252,12 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     for epoch in epochs:
         optim.zero_grad()
         u = mg.get()
-        Dw, R, rho, x0, y0, z0 = params
+        Dw, R, rho, x0, y0, z0, th_lo, th_hi = params
         Dg = Dw / R
         ploss = compute_pde_loss(u, Dw=Dw, Dg=Dg, rho=rho)
-        dloss = compute_data_loss(u, th_core, th_edema_lo, th_edema_hi)
+        dloss = compute_data_loss(u, th_lo=th_lo, th_hi=th_hi)
         iloss = compute_ic_loss(u, x0, y0, z0)
-        loss = ploss + iloss + dloss
+        loss = ploss + iloss + dloss + params_bounds_loss(th_lo, th_hi)
         loss.backward()
         optim.step()
 
