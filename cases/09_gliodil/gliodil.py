@@ -68,7 +68,8 @@ LOOKUP_TABLE default
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
                 num_epochs=5000, lr=1e-2, report_every=100,
-                verbose=True, tend=50.0, lambda_pde=10, lambda_ic=100):
+                verbose=True, tend=50.0, lambda_pde=10, lambda_ic=100,
+                matter_th=0.1):
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -103,7 +104,10 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     print(f"dx = {dx:.2f}mm, dy = {dy:.2f}mm, dz = {dz:.2f}mm")
 
-    matter = get_matter_portions(gm, wm, threshold=0.1, device=device)
+    gm_ = torch.from_numpy(gm).to(device)
+    wm_ = torch.from_numpy(wm).to(device)
+
+    matter = get_matter_portions(gm, wm, threshold=matter_th, device=device)
     seg_ = torch.from_numpy(seg).to(device)
 
     mask_core = torch.where(seg_ == SEG_CODE.core, 1.0, 0.0)
@@ -188,24 +192,6 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
         return lambda_ic * torch.mean(res_ic**2)
 
-    def compute_data_loss_experimental(u, th_core, th_edema_lo, th_edema_hi):
-        sigma_data = 1/50
-        eps = 1e-6
-        uend = u[-1,:,:,:]
-
-        alpha_core = torch.sigmoid((uend - th_core) / sigma_data)
-        alpha_core = torch.minimum(torch.full_like(alpha_core, 1-eps), alpha_core)
-        alpha_core = torch.maximum(torch.full_like(alpha_core,   eps), alpha_core)
-
-        alpha_edema = torch.sigmoid((uend - th_edema_lo) / sigma_data) - (1 - torch.sigmoid((th_edema_hi - uend) / sigma_data))
-        alpha_edema = torch.minimum(torch.full_like(alpha_edema, 1-eps), alpha_edema)
-        alpha_edema = torch.maximum(torch.full_like(alpha_edema,   eps), alpha_edema)
-
-        neg_loss  = mask_core  * torch.log(alpha_core)  + (1-mask_core)  * torch.log(1-alpha_core)
-        neg_loss += mask_edema * torch.log(alpha_edema) + (1-mask_edema) * torch.log(1-alpha_edema)
-
-        return -torch.mean(neg_loss)
-
     def compute_data_loss(u, th_lo, th_hi):
         uend = u[-1,:,:,:]
 
@@ -219,6 +205,11 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
         res_hi = relu(uend - upper_vals)
 
         return torch.mean(res_lo + res_hi)
+
+    def compute_csf_loss(u):
+        mask = torch.where(gm_ + wm_ < matter_th, 1.0, 0.0)
+        res = mask[None,:,:,:] * u
+        return torch.mean(res**2)
 
     def params_bounds_loss(th_lo, th_hi):
         relu = torch.nn.functional.relu
@@ -237,7 +228,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     mg.to(device)
     mg.set_requires_grad()
 
-    params = torch.tensor([Dw, Dw/Dg, rho, x0, y0, z0, th_lo, th_hi], requires_grad=True)
+    params = torch.tensor([Dw, np.log(Dw/Dg), rho, x0, y0, z0, th_lo, th_hi], requires_grad=True)
     params.to(device)
 
     optim = torch.optim.Adam(mg.params() + [params], lr=lr)
@@ -252,12 +243,15 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     for epoch in epochs:
         optim.zero_grad()
         u = mg.get()
-        Dw, R, rho, x0, y0, z0, th_lo, th_hi = params
+        Dw, log_R, rho, x0, y0, z0, th_lo, th_hi = params
+        R = torch.exp(log_R)
         Dg = Dw / R
         ploss = compute_pde_loss(u, Dw=Dw, Dg=Dg, rho=rho)
         dloss = compute_data_loss(u, th_lo=th_lo, th_hi=th_hi)
         iloss = compute_ic_loss(u, x0, y0, z0)
-        loss = ploss + iloss + dloss + params_bounds_loss(th_lo, th_hi)
+        loss = ploss + iloss + dloss
+        loss += params_bounds_loss(th_lo, th_hi)
+        loss += compute_csf_loss(u)
         loss.backward()
         optim.step()
 
@@ -293,7 +287,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data_path', type=str, help='path to .nii files')
-    parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[33, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
+    parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
     parser.add_argument('--out-dir', type=str, default='out_gliodil', help='output directory')
     args = parser.parse_args()
 
