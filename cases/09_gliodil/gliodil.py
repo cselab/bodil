@@ -68,7 +68,7 @@ LOOKUP_TABLE default
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
                 num_epochs=5000, lr=1e-2, report_every=100,
-                verbose=True, tend=50.0, lambda_pde=10, lambda_ic=100,
+                verbose=True, tend=50.0, lambda_pde=10, lambda_ic=1000,
                 matter_th=0.1):
 
     os.makedirs(out_dir, exist_ok=True)
@@ -222,6 +222,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     # initial guess
     u0 = torch.from_numpy(u_ig)
+    #u0 = torch.full((Nt, Nx, Ny, Nz), fill_value=(th_lo + th_hi)/2)
     depth = int(np.log(min([Nt, Nx, Ny, Nz])) / np.log(2))
     if verbose:
         print(f"Multigrid depth = {depth}")
