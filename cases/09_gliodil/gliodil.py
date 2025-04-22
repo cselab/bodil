@@ -67,8 +67,8 @@ LOOKUP_TABLE default
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
-                num_epochs=3000, lr=1e-2, report_every=100,
-                verbose=True, tend=50.0, lambda_pde=100, lambda_ic=100):
+                num_epochs=5000, lr=1e-2, report_every=100,
+                verbose=True, tend=50.0, lambda_pde=10, lambda_ic=100):
 
     os.makedirs(out_dir, exist_ok=True)
 
