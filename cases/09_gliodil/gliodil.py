@@ -119,14 +119,15 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     Dg  = params_ig['Dg']  * tscale
     rho = params_ig['rho'] * tscale
     x0, y0, z0 = params_ig['x0'], params_ig['y0'], params_ig['z0']
-    th_core = params_ig['th_hi']
     th_lo = params_ig['th_lo']
     th_hi = params_ig['th_hi']
 
     if verbose:
         print("Initial guess for parameters:")
         print(f"    (x0, y0, z0) = ({x0:.1f}, {y0:.1f}, {z0:.1f})")
-
+        print(f"    (th_lo, th_hi) = ({th_lo:.2f}, {th_hi:.2f})")
+        print(f"    Dw * T = {Dw * tend:.2f} mm^2, Dg * T = {Dg * tend:.2f} mm^2")
+        print(f"    rho * T = {rho * tend:.2f}")
 
     def compute_pde_loss(u, Dw, Dg, rho):
         # [c]urrent time
