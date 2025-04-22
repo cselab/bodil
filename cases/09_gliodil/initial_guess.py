@@ -132,7 +132,7 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
 
     # see GliODIL paper
     Dw = volume_edema / volume_core
-    rho = 1
+    rho = 0.12
     Dg = Dw / 100
     th_lo = 0.3
     th_hi = 0.65
@@ -155,11 +155,13 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
         trace_u.append(u.copy())
         trace_scores.append(score)
 
-        if len(trace_scores) > 10 and trace_scores[-3] > trace_scores[-2] and trace_scores[-3] > trace_scores[-1] and score > 0:
-            endstep = step
-            break
+        #if len(trace_scores) > 10 and trace_scores[-3] > trace_scores[-2] and trace_scores[-3] > trace_scores[-1] and score > 0:
+        #    endstep = step
+        #    break
 
         u = advance(u, D, rho, dx, dy, dz, dt)
+
+    endstep = np.argmax(trace_scores)
 
     tend = endstep * dt
 
