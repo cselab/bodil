@@ -43,22 +43,21 @@ def dump_nii(u, th_lo, th_hi, raw_data, meta_data, trim_scale, trimmed_shape, pa
     nifti_file = nib.Nifti1Image(seg, meta_data['nifti_affine'], header=meta_data['nifti_header'])
     nib.save(nifti_file, path)
 
-def dump_vtk(u, dx, dy, dz, path):
+def dump_vtk(u, dx, dy, dz, origin, path, varname='u'):
     nx, ny, nz = u.shape
     num_points = nx * ny * nz
     spacing = (dx, dy, dz)
-    origin = (0.0, 0.0, 0.0)
 
     with open(path, "wb") as f:
         header = f"""# vtk DataFile Version 3.0
 Binary uniform grid
 BINARY
 DATASET STRUCTURED_POINTS
-DIMENSIONS {nx} {ny} {nz}
-ORIGIN {origin[0]} {origin[1]} {origin[2]}
-SPACING {spacing[0]} {spacing[1]} {spacing[2]}
+DIMENSIONS {nz} {ny} {nx}
+ORIGIN {origin[2]} {origin[1]} {origin[0]}
+SPACING {spacing[2]} {spacing[1]} {spacing[0]}
 POINT_DATA {num_points}
-SCALARS u float
+SCALARS {varname} float
 LOOKUP_TABLE default
 """
         f.write(header.encode("utf-8"))
@@ -67,15 +66,21 @@ LOOKUP_TABLE default
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
-                num_epochs=5000, lr=1e-2, report_every=100,
+                num_epochs=10000, lr=1e-2, report_every=100,
                 verbose=True, tend=50.0, lambda_pde=10, lambda_ic=1000,
-                matter_th=0.1):
+                matter_th=0.1, dump_raw_to_vtk=False):
 
     os.makedirs(out_dir, exist_ok=True)
 
     T_ig, u_ig, params_ig = get_initial_guess(data_path, Nx, Ny, Nz, trim_scale=trim_scale, Nt_ODIL=Nt, verbose=verbose)
 
     meta_data, raw_data, trimmed_data = load_data(data_path, trim_scale)
+
+    if dump_raw_to_vtk:
+        dump_vtk(raw_data['gm'], dx=1, dy=1, dz=1, origin=(0.0, 0.0, 0.0), varname='gm',
+                 path=os.path.join(out_dir, 'gm.vtk'))
+        dump_vtk(raw_data['wm'], dx=1, dy=1, dz=1, origin=(0.0, 0.0, 0.0), varname='wm',
+                 path=os.path.join(out_dir, 'wm.vtk'))
 
     # adjust data
     trimmed_shape = trimmed_data['seg'].shape
@@ -283,7 +288,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     uend = u[-1,:,:,:]
 
     for it in range(Nt):
-        dump_vtk(u[it], dx, dy, dz, path=os.path.join(out_dir, f'seg_{it:04d}.vtk'))
+        dump_vtk(u[it], dx, dy, dz, origin=meta_data['crop_offset'],
+                 path=os.path.join(out_dir, f'seg_{it:04d}.vtk'))
 
 
 def main():
@@ -300,7 +306,8 @@ def main():
 
     run_gliodil(data_path=args.data_path,
                 Nt=Nt, Nx=Nx, Ny=Ny, Nz=Nz,
-                device=device, out_dir=out_dir)
+                device=device, out_dir=out_dir,
+                dump_raw_to_vtk=True)
 
 if __name__ == '__main__':
     main()
