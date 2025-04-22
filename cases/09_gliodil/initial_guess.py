@@ -107,7 +107,7 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
     assert gm.shape[0] == Nx and  gm.shape[1] == Ny and  gm.shape[2] == Nz
     assert len(np.unique(seg)) <= 3
 
-    tend = 50
+    tend = 100
     maxsteps = 1000
     dt = tend / maxsteps
 
