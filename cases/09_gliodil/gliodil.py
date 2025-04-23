@@ -66,7 +66,7 @@ LOOKUP_TABLE default
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
                 num_epochs=5000, lr=1e-3, report_every=100,
-                verbose=True, tend=50.0, lambda_pde=1e4, lambda_ic=1000,
+                verbose=True, tend=50.0, lambda_pde=1e4, lambda_ic=100,
                 matter_th=0.1, dump_raw_to_vtk=False,
                 xyz0=None):
 
@@ -82,6 +82,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                  path=os.path.join(out_dir, 'gm.vtk'))
         dump_vtk(raw_data['wm'], dx=1, dy=1, dz=1, origin=(0.0, 0.0, 0.0), varname='wm',
                  path=os.path.join(out_dir, 'wm.vtk'))
+        dump_vtk(raw_data['seg'], dx=1, dy=1, dz=1, origin=(0.0, 0.0, 0.0), varname='seg',
+                 path=os.path.join(out_dir, 'seg.vtk'))
 
     # adjust data
     trimmed_shape = trimmed_data['seg'].shape
