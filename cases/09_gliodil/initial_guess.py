@@ -84,13 +84,14 @@ def compute_dice_scores(u, seg, th_lo, th_hi):
     return dice_score(mask_core_data, mask_core_sim), dice_score(mask_edema_data, mask_edema_sim)
 
 
-def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
+def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, xyz0=None, verbose=False):
     """
     Arguments:
         data_path: path to directory that contains the nii GM, WM and SEG files
         Nx, Ny, Nz: grid resolution
         trim_scale: scale to select the trimmed region (1 = smallest rectangle, should be > 1
         Nt_ODIL: Number of snapshots to get as initial guess for ODIL
+        xyz0: if set, must be a sequence of 3 floats, that sets the initial conditionsfor the gaussian.
         verbose: if True, will print diagnostics on stdout
 
     Return:
@@ -122,7 +123,13 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, verbose):
 
     X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
 
-    x0, y0, z0 = center_of_mass(X, Y, Z, np.where(seg == SEG_CODE.core, 1.0, 0.0))
+    if xyz0 is None:
+        x0, y0, z0 = center_of_mass(X, Y, Z, np.where(seg == SEG_CODE.core, 1.0, 0.0))
+    else:
+        try:
+            x0, y0, z0 = xyz0
+        except:
+            raise ValueError(f"xyz0 must be either set to None or to a list of 3 floats. Got {xyz0}.")
 
     volume_edema = np.sum(np.where(seg == SEG_CODE.edema, 1.0, 0.0))
     volume_core  = np.sum(np.where(seg == SEG_CODE.core , 1.0, 0.0))

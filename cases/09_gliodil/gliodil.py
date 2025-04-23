@@ -68,11 +68,13 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
                 num_epochs=10000, lr=1e-2, report_every=100,
                 verbose=True, tend=50.0, lambda_pde=10, lambda_ic=1000,
-                matter_th=0.1, dump_raw_to_vtk=False):
+                matter_th=0.1, dump_raw_to_vtk=False,
+                xyz0=None):
 
     os.makedirs(out_dir, exist_ok=True)
 
-    T_ig, u_ig, params_ig = get_initial_guess(data_path, Nx, Ny, Nz, trim_scale=trim_scale, Nt_ODIL=Nt, verbose=verbose)
+    T_ig, u_ig, params_ig = get_initial_guess(data_path, Nx, Ny, Nz, trim_scale=trim_scale,
+                                              Nt_ODIL=Nt, xyz0=xyz0, verbose=verbose)
 
     meta_data, raw_data, trimmed_data = load_data(data_path, trim_scale)
 
@@ -238,6 +240,12 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     params = torch.tensor([Dw, np.log(Dw/Dg), rho, x0, y0, z0, th_lo, th_hi], requires_grad=True)
     params.to(device)
 
+    if xyz0 is not None:
+        # zero gradient on x0, y0, z0 to avoid updating.
+        params_grad_mask = torch.tensor([1, 1, 1, 0, 0, 0, 1, 1])
+        params_grad_mask.to(device)
+        params.register_hook(lambda grad: grad * params_grad_mask)
+
     optim = torch.optim.Adam(mg.params() + [params], lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=10, min_lr=1e-4)
 
@@ -297,6 +305,7 @@ def main():
     parser.add_argument('data_path', type=str, help='path to .nii files')
     parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
     parser.add_argument('--out-dir', type=str, default='out_gliodil', help='output directory')
+    parser.add_argument('--xyz0', type=float, nargs=3, default=None, help='if set, use a fixed parameter for x0, y0, z0 of the tumor')
     args = parser.parse_args()
 
     Nt, Nx, Ny, Nz = args.NtNxNyNz
@@ -307,7 +316,7 @@ def main():
     run_gliodil(data_path=args.data_path,
                 Nt=Nt, Nx=Nx, Ny=Ny, Nz=Nz,
                 device=device, out_dir=out_dir,
-                dump_raw_to_vtk=True)
+                dump_raw_to_vtk=True, xyz0=args.xyz0)
 
 if __name__ == '__main__':
     main()
