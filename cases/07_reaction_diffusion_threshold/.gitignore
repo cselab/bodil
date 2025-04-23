@@ -1,4 +1,5 @@
 *.csv
+*.json
 *.npy
 *.png
 *.pkl
