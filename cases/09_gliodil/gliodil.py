@@ -4,7 +4,6 @@ import argparse
 import nibabel as nib
 import numpy as np
 import os
-import pandas as pd
 import torch
 from scipy.ndimage import zoom
 
@@ -66,8 +65,8 @@ LOOKUP_TABLE default
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
-                num_epochs=10000, lr=1e-2, report_every=100,
-                verbose=True, tend=50.0, lambda_pde=10, lambda_ic=1000,
+                num_epochs=5000, lr=1e-3, report_every=100,
+                verbose=True, tend=50.0, lambda_pde=1e4, lambda_ic=1000,
                 matter_th=0.1, dump_raw_to_vtk=False,
                 xyz0=None):
 
@@ -247,50 +246,35 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
         params.register_hook(lambda grad: grad * params_grad_mask)
 
     optim = torch.optim.Adam(mg.params() + [params], lr=lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=10, min_lr=1e-4)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=10, min_lr=1e-4)
 
-    epochs = list(range(num_epochs))
-    pde_losses = []
-    data_losses = []
-    ic_losses = []
-    losses = []
+    f_train_output = open(os.path.join(out_dir, 'train_history.csv'), 'w')
+    print('epoch,pde_loss,data_loss,ic_loss,loss', file=f_train_output, flush=True)
 
-    for epoch in epochs:
+    for epoch in range(num_epochs):
         optim.zero_grad()
         u = mg.get()
         Dw, log_R, rho, x0, y0, z0, th_lo, th_hi = params
         R = torch.exp(log_R)
         Dg = Dw / R
-        ploss = compute_pde_loss(u, Dw=Dw, Dg=Dg, rho=rho)
-        dloss = compute_data_loss(u, th_lo=th_lo, th_hi=th_hi)
-        iloss = compute_ic_loss(u, x0, y0, z0)
-        loss = ploss + iloss + dloss
-        loss += params_bounds_loss(th_lo, th_hi)
-        loss += compute_csf_loss(u)
+        pde_loss = compute_pde_loss(u, Dw=Dw, Dg=Dg, rho=rho)
+        data_loss = compute_data_loss(u, th_lo=th_lo, th_hi=th_hi)
+        ic_loss = compute_ic_loss(u, x0, y0, z0)
+        params_loss = params_bounds_loss(th_lo, th_hi)
+        csf_loss = compute_csf_loss(u)
+        loss = pde_loss + ic_loss + data_loss + params_loss + csf_loss
         loss.backward()
         optim.step()
 
         l = loss.item()
-        pde_losses.append(ploss.item())
-        data_losses.append(dloss.item())
-        ic_losses.append(iloss.item())
-        losses.append(l)
 
-        scheduler.step(l)
+        print(f'{epoch},{pde_loss.item()},{data_loss.item()},{ic_loss.item()},{l}', file=f_train_output, flush=True)
+
+        # scheduler.step(l)
 
         if verbose and epoch % report_every == 0:
             params_str = ''.join(f"{v:.3f} " for v in params.detach().numpy())
             print(f"epoch {epoch:06d} loss {l:.4e}, params {params_str}")
-
-    train_hist = {
-        'epoch': epochs,
-        'pde_loss': pde_losses,
-        'data_loss': data_losses,
-        'ic_loss': ic_losses,
-        'loss': losses
-    }
-
-    pd.DataFrame(train_hist).to_csv(os.path.join(out_dir, 'train_history.csv'), index=False)
 
     u = mg.get().detach().cpu().numpy()
     uend = u[-1,:,:,:]
