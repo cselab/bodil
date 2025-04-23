@@ -114,12 +114,12 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     gm_ = torch.from_numpy(gm).to(device)
     wm_ = torch.from_numpy(wm).to(device)
-
-    matter = get_matter_portions(gm, wm, threshold=matter_th, device=device)
     seg_ = torch.from_numpy(seg).to(device)
 
-    mask_core = torch.where(seg_ == SEG_CODE.core, 1.0, 0.0)
-    mask_edema = torch.where(seg_ == SEG_CODE.edema, 1.0, 0.0)
+    matter = get_matter_portions(gm, wm, threshold=matter_th, device=device)
+
+    mask_core = torch.where(seg_ == SEG_CODE.core, 1.0, 0.0).to(device)
+    mask_edema = torch.where(seg_ == SEG_CODE.edema, 1.0, 0.0).to(device)
 
     # parameters
     tscale = tend / T_ig
@@ -238,13 +238,11 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     mg.to(device)
     mg.set_requires_grad()
 
-    params = torch.tensor([Dw, np.log(Dw/Dg), rho, x0, y0, z0, th_lo, th_hi], requires_grad=True)
-    params.to(device)
+    params = torch.tensor([Dw, np.log(Dw/Dg), rho, x0, y0, z0, th_lo, th_hi], requires_grad=True, device=device)
 
     if xyz0 is not None:
         # zero gradient on x0, y0, z0 to avoid updating.
-        params_grad_mask = torch.tensor([1, 1, 1, 0, 0, 0, 1, 1])
-        params_grad_mask.to(device)
+        params_grad_mask = torch.tensor([1, 1, 1, 0, 0, 0, 1, 1], device=device)
         params.register_hook(lambda grad: grad * params_grad_mask)
 
     optim = torch.optim.Adam(mg.params() + [params], lr=lr)
@@ -275,8 +273,10 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
         # scheduler.step(l)
 
         if verbose and epoch % report_every == 0:
-            params_str = ''.join(f"{v:.3f} " for v in params.detach().numpy())
+            params_str = ''.join(f"{v:.3f} " for v in params.detach().cpu().numpy())
             print(f"epoch {epoch:06d} loss {l:.4e}, params {params_str}")
+
+    f_train_output.close()
 
     u = mg.get().detach().cpu().numpy()
     uend = u[-1,:,:,:]
@@ -288,7 +288,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('data_path', type=str, help='path to .nii files')
+    parser.add_argument('data_path', type=str, help='path to directory containing .nii files')
     parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
     parser.add_argument('--out-dir', type=str, default='out_gliodil', help='output directory')
     parser.add_argument('--xyz0', type=float, nargs=3, default=None, help='if set, use a fixed parameter for x0, y0, z0 of the tumor')

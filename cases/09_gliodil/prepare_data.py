@@ -74,8 +74,9 @@ def crop_scale_data(seg, gm, wm, scale):
     zmin, zmax = _get_scaled_range(zmin, zmax, scale)
 
     offset = [xmin, ymin, zmin]
+    extent = [xmax - xmin, ymax - ymin, zmax - zmin]
 
-    return offset, \
+    return offset, extent, \
         seg[xmin:xmax,ymin:ymax,zmin:zmax], \
         gm[xmin:xmax,ymin:ymax,zmin:zmax], \
         wm[xmin:xmax,ymin:ymax,zmin:zmax]
@@ -102,12 +103,13 @@ def load_data(data_path, trim_scale=1.5):
                    np.where(np.isin(seg, [NIFTI_CODE.enhancing, NIFTI_CODE.necrotic]), SEG_CODE.core,
                             SEG_CODE.healthy))
 
-    offset, trimmed_seg, trimmed_gm, trimmed_wm = crop_scale_data(seg, gm, wm, trim_scale)
+    offset, extent, trimmed_seg, trimmed_gm, trimmed_wm = crop_scale_data(seg, gm, wm, trim_scale)
 
     meta_data = {
         'nifti_affine': seg_affine,
         'nifti_header': seg_header,
-        'crop_offset': offset
+        'crop_offset': offset,
+        'crop_extent': extent
     }
 
     raw_data = {

@@ -169,6 +169,7 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, xyz0=None, ver
         u = advance(u, D, rho, dx, dy, dz, dt)
 
     endstep = np.argmax(trace_scores)
+    endstep = max([endstep, 15])
 
     tend = endstep * dt
 
@@ -181,7 +182,8 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, xyz0=None, ver
     todil = np.linspace(0, tend, Nt_ODIL, endpoint=True)
 
     dtsim = tsim[1] - tsim[0]
-    assert dt == dtsim
+    if abs(dt - dtsim) > 1e-6:
+        raise RuntimeError(f"mismatch between dt and dtsim: {dt} != {dtsim}")
 
     uodil = np.empty((Nt_ODIL, Nx, Ny, Nz))
 
