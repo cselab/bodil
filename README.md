@@ -28,5 +28,5 @@ mamba create -n uqodil python=3.12.8 numpy pip wheel
 mamba install -n uqodil -y cuda-toolkit=12.1.0 -c "nvidia/label/cuda-12.1.0"
 mamba install -n uqodil -y pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
 mamba activate uqodil
-pip install dpdprops matplotlib pint pandas mpi4py
+pip install dpdprops matplotlib pint pandas mpi4py nibabel
 ```
