@@ -57,10 +57,12 @@ EOS
     sbatch $batch
 }
 
-run_case 0.125 0.05 10 100
-run_case 0.125 0.10 40 400
+run_case 0.125 0.10 1 10
+run_case 0.125 0.10 10 100
 run_case 0.125 0.01 10 100
+run_case 0.125 0.01 100 1000
 
-run_case 1.000 0.05 10 100
-run_case 1.000 0.10 40 400
+run_case 1.000 0.10 1 10
+run_case 1.000 0.10 10 100
 run_case 1.000 0.01 10 100
+run_case 1.000 0.01 100 1000
