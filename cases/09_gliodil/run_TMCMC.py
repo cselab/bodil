@@ -33,6 +33,7 @@ def main():
     parser.add_argument("--base-out-dir", type=str, default="out_TMCMC", help="base output directory")
     parser.add_argument("--nsamples", type=int, default=128, help="Number of samples.")
     parser.add_argument("--seed", type=int, default=21387875, help="Random seed.")
+    parser.add_argument("--sigma-data", type=float, default=0.05, help="Per-voxel data segmentation error parameter.")
     parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
     args = parser.parse_args()
 
@@ -52,7 +53,7 @@ def main():
     cuda_id = rank % torch.cuda.device_count()
     device = torch.device(f"cuda:{cuda_id}" if torch.cuda.is_available() else "cpu")
 
-    sigma_data = 1.0 # TODO
+    sigma_data = args.sigma_data
     beta = Nx * Ny * Ny / sigma_data
 
     def log_likelihood(sample, context):
@@ -73,7 +74,7 @@ def main():
                             dump_raw_to_vtk=False,
                             device=device, num_epochs=5000,
                             verbose=False, trim_scale=trim_scale)
-        except RuntimeError as e:
+        except Exception as e:
             print(rank, e)
             print(f"Failed on {MPI.Get_processor_name()}, Device: {device}")
             sys.stdout.flush()

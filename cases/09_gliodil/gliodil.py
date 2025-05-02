@@ -110,7 +110,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
     assert x[1] - x[0] == dx
 
-    print(f"dx = {dx:.2f}mm, dy = {dy:.2f}mm, dz = {dz:.2f}mm")
+    if verbose:
+        print(f"dx = {dx:.2f}mm, dy = {dy:.2f}mm, dz = {dz:.2f}mm")
 
     gm_ = torch.from_numpy(gm).to(device)
     wm_ = torch.from_numpy(wm).to(device)

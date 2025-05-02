@@ -8,8 +8,9 @@
 
 run_case() {
     patient_code=$1; shift
+    sigma_data=$1; shift
 
-    outdir=$SCRATCH/uq-odil/gliodil/results_patient_${patient_code}
+    outdir=$SCRATCH/uq-odil/gliodil/results_patient_${patient_code}_sigma_data_${sigma_data}
     mkdir -p $outdir
 
     data_path=$SCRATCH/uq-odil/data_GliODIL_essential/data_${patient_code}
@@ -23,7 +24,7 @@ run_case() {
 #SBATCH --nodes=${nodes}
 #SBATCH --ntasks-per-node=${tasks_per_node}
 #SBATCH -t 2-00:00 # time (D-HH:MM)
-#SBATCH --job-name=p${patient_code}
+#SBATCH --job-name=p${patient_code}_s${sigma_data}
 #SBATCH --constraint=h100
 #SBATCH --gres=gpu
 #SBATCH --mem=40G
@@ -35,10 +36,13 @@ srun --mpi=pmix -n $nprocs ./run_TMCMC.py \
        $data_path \
        --nsamples $nsamples \
        --base-out-dir $outdir/out_TMCMC \
-       --NtNxNyNz 257 64 64 64
+       --NtNxNyNz 257 64 64 64 \
+       --sigma-data $sigma_data
 EOS
 
     sbatch $batch
 }
 
-run_case 034
+sigma_data=0.05
+#run_case 034 $sigma_data
+run_case 020 $sigma_data
