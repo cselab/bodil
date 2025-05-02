@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import glob
 import json
 from mpi4py import MPI
 import numpy as np
@@ -62,13 +63,16 @@ def main():
                                f"x0_{x0:.5f}_y0_{y0:.5f}_z0_{z0:.5f}")
 
         try:
-            run_gliodil(data_path=data_path,
-                        Nt=Nt, Nx=Nx, Ny=Ny, Nz=Nz,
-                        out_dir=out_dir,
-                        xyz0=[x0, y0, z0],
-                        dump_raw_to_vtk=False,
-                        device=device, num_epochs=5000,
-                        verbose=False, trim_scale=trim_scale)
+            # test if this was already computed
+            vtk_files = glob.glob(os.path.join(out_dir, '*.vtk'))
+            if len(vtk_files) == 0:
+                run_gliodil(data_path=data_path,
+                            Nt=Nt, Nx=Nx, Ny=Ny, Nz=Nz,
+                            out_dir=out_dir,
+                            xyz0=[x0, y0, z0],
+                            dump_raw_to_vtk=False,
+                            device=device, num_epochs=5000,
+                            verbose=False, trim_scale=trim_scale)
         except RuntimeError as e:
             print(rank, e)
             print(f"Failed on {MPI.Get_processor_name()}, Device: {device}")
@@ -105,7 +109,8 @@ def main():
                               num_samples=nsamples,
                               comm=comm,
                               seed=seed,
-                              callback=callback)
+                              callback=callback,
+                              checkpoint_dir=os.path.join(base_dir, '__checkpoint'))
 
     if rank == 0:
         print(f"evidence: {evidence}")

@@ -2,9 +2,9 @@
 
 #set -eu
 
-: ${nprocs=32}
-: ${tasks_per_node=4}
-: ${nsamples=256}
+: ${nprocs=8}
+: ${tasks_per_node=1}
+: ${nsamples=128}
 
 run_case() {
     patient_code=$1; shift
@@ -22,7 +22,7 @@ run_case() {
 #SBATCH --partition=seas_gpu
 #SBATCH --nodes=${nodes}
 #SBATCH --ntasks-per-node=${tasks_per_node}
-#SBATCH -t 0-12:00 # time (D-HH:MM)
+#SBATCH -t 2-00:00 # time (D-HH:MM)
 #SBATCH --job-name=p${patient_code}
 #SBATCH --constraint=h100
 #SBATCH --gres=gpu
