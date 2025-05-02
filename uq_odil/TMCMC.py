@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
+import glob
 import numpy as np
+import os
+import pickle
 from scipy.stats import norm, truncnorm
 import scipy.optimize as optimize
 import sys
 
-def eval_log_like(samples, log_likelihood_func, comm, context):
+def _eval_log_like(samples, log_likelihood_func, comm, context):
     rank = comm.Get_rank()
     size = comm.Get_size()
     n = len(samples)
@@ -25,26 +28,82 @@ def TMCMC(log_likelihood,
           num_samples: int,
           comm,
           seed,
-          callback=None):
+          callback=None,
+          checkpoint_dir=None,
+          restart_from_dir=None):
+    """
+    Run the TMCMC BASIS algorithm.
+    Optionally checkpoint/restart.
+
+    Arguments:
+        log_likelihood: compute the log likelihood of a sample.
+        log_prior_density: compute log of the prior at a sample.
+        prior_sampler: returns a sample from the prior distribution.
+        beta: factor for coefficient of variation.
+        gamma: parameter for updating annealing coefficient
+        num_samples: number of samples to generate.
+        comm: mpi communicator
+        seed: random seed
+        callback: if set, a function called by rank 0 at each stage. used to save diagnostics.
+        checkpoint_dir: if set, save the state of TMCMC at every stage in this directory.
+        restart_from_dir: if set, restart from the latest checkpoint file contained in this directory.
+    """
 
     rank = comm.Get_rank()
-    rng = np.random.default_rng(seed)
 
-    zeta = 0
-    S = 1.0
-    stage = 0
+    if restart_from_dir is None:
+        rng = np.random.default_rng(seed)
 
-    context = {'stage': stage}
+        zeta = 0
+        S = 1.0
+        stage = 0
 
-    samples = np.array([prior_sampler(rng) for i in range(num_samples)])
-    log_fvals = eval_log_like(samples, log_likelihood, comm, context)
+        context = {'stage': stage}
 
-    if callback and rank == 0:
-        callback(stage=stage, samples=samples, log_fvals=log_fvals, zeta=zeta, S=S)
+        samples = np.array([prior_sampler(rng) for i in range(num_samples)])
+        log_fvals = _eval_log_like(samples, log_likelihood, comm, context)
 
-    stage += 1
+        if rank == 0:
+            print(f"stage {stage}: zeta = {zeta}, S = {S}")
+            sys.stdout.flush()
+
+            if callback:
+                callback(stage=stage, samples=samples, log_fvals=log_fvals, zeta=zeta, S=S)
+    else:
+        checkpoint_files = sorted(glob.glob(os.path.join(restart_from_dir, 'checkpoint.??????.pickle')))
+        with open(checkpoint_files[-1], 'rb') as f:
+            data = pickle.load(f)
+
+        rng = data['rng']
+        zeta = data['zeta']
+        S = data['S']
+        stage = data['stage']
+        samples = np.array(data['samples'])
+        log_fvals = np.array(data['log_fvals'])
+
+        if rank == 0:
+            print(f"Restarted from stage {stage}: zeta = {zeta}, S = {S}")
+            sys.stdout.flush()
+
 
     while zeta < 1:
+        if checkpoint_dir:
+            data = {
+                'rng': rng,
+                'zeta': zeta,
+                'S': S,
+                'stage': stage,
+                'samples': samples,
+                'log_fvals': log_fvals
+            }
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            path = os.path.join(checkpoint_dir, f'checkpoint.{stage:06d}.pickle')
+
+            with open(path, 'wb') as f:
+                pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+
+        stage += 1
+
         # adapt zeta
         zeta0 = zeta
 
@@ -80,7 +139,7 @@ def TMCMC(log_likelihood,
             candidate_samples[k] = xp
 
         context = {'stage': stage}
-        log_fvalsp = eval_log_like(candidate_samples, log_likelihood, comm, context)
+        log_fvalsp = _eval_log_like(candidate_samples, log_likelihood, comm, context)
         log_fp = np.array([zeta * fp + log_prior_density(xp) for xp, fp in zip(candidate_samples, log_fvalsp)])
 
         ## accept / reject
@@ -96,8 +155,6 @@ def TMCMC(log_likelihood,
             if callback:
                 callback(stage=stage, samples=samples, log_fvals=log_fvals, zeta=zeta, S=S)
 
-
-        stage += 1
 
     evidence = S
     return samples, evidence
@@ -117,6 +174,11 @@ def main():
     def log_likelihood(x, context):
         return norm.logpdf(x[0], loc=1, scale=0.05) + norm.logpdf(x[1], loc=1, scale=0.2)
 
+    def log_likelihood_fail_stage_2(x, context):
+        if context['stage'] == 2:
+            raise RuntimeError('expected failure thrown to test restart.')
+        return log_likelihood(x, context)
+
     def callback(stage, samples, log_fvals, zeta, S):
         data = {
             'stage': stage,
@@ -129,15 +191,34 @@ def main():
         with open(f'stage_{stage:03d}.json', 'w') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
-    samples, evidence = TMCMC(log_likelihood=log_likelihood,
-                              log_prior_density=log_prior_density,
-                              prior_sampler=prior_sampler,
-                              beta=0.2,
-                              gamma=1,
-                              num_samples=128,
-                              comm=comm,
-                              seed=234987,
-                              callback=callback)
+    checkpoint_dir = '__checkpoint_TMCMC'
+
+    try:
+        samples, evidence = TMCMC(log_likelihood=log_likelihood_fail_stage_2,
+                                  log_prior_density=log_prior_density,
+                                  prior_sampler=prior_sampler,
+                                  beta=0.2,
+                                  gamma=1,
+                                  num_samples=128,
+                                  comm=comm,
+                                  seed=234987,
+                                  callback=callback,
+                                  checkpoint_dir=checkpoint_dir)
+    except RuntimeError as e:
+        print(e)
+
+        samples, evidence = TMCMC(log_likelihood=log_likelihood,
+                                  log_prior_density=log_prior_density,
+                                  prior_sampler=prior_sampler,
+                                  beta=0.2,
+                                  gamma=1,
+                                  num_samples=128,
+                                  comm=comm,
+                                  seed=234987,
+                                  callback=callback,
+                                  restart_from_dir=checkpoint_dir)
+
+
 
     if comm.Get_rank() == 0:
         import matplotlib.pyplot as plt
