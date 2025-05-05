@@ -75,8 +75,7 @@ def main():
                             device=device, num_epochs=5000,
                             verbose=False, trim_scale=trim_scale)
         except Exception as e:
-            print(rank, e)
-            print(f"Failed on {MPI.Get_processor_name()}, Device: {device}")
+            print(f"Rank {rank}: Failed on {MPI.Get_processor_name()}, Device: {device}, Exception: {e}")
             sys.stdout.flush()
         try:
             loss = compute_loss(path=out_dir)

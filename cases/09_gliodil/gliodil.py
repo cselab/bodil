@@ -68,7 +68,29 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 num_epochs=5000, lr=1e-3, report_every=100,
                 verbose=True, tend=50.0, lambda_pde=1e4, lambda_ic=100,
                 matter_th=0.1, dump_raw_to_vtk=False,
-                xyz0=None):
+                xyz0=None, dump_results_mode='last_only'):
+    """
+    Arguments:
+        data_path: path to patient data
+        Nt, Nx, Ny, Nz: grid size, must be powers of 2
+        device: pytorch device
+        out_dir: output directory
+        trim_scale: scale to choose the domain. 1.5 means 50% larger than the ,inimal one. must be larger than 1.
+        num_epochs: number of training epochs
+        lr: learning rate
+        report_every: report loss on stdout every this number of epochs
+        verbose: if True, reports additional information to stdout
+        tend: simulation time scale
+        lambda_pde: weight on pde loss
+        lambda_ic: wight on IC loss
+        matter_th: threshold to condiser what is matter or not.
+        dump_raw_to_vtk: if true, dump the raw data to vtk at the start of the simulation. Useful to compare with ODIL solution.
+        xyz0: if set, the initial position of the tumor.
+        dump_results_mode: what to dump at the end of the training loop:
+            * none: do not dump anything
+            * all: dump all time steps
+            * last_only: dump only the last time step
+    """
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -282,12 +304,18 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     u = mg.get().detach().cpu().numpy()
     uend = u[-1,:,:,:]
 
-    if False:
+    if dump_results_mode == 'all':
         for it in range(Nt):
             dump_vtk(u[it], dx, dy, dz, origin=meta_data['crop_offset'],
                      path=os.path.join(out_dir, f'seg_{it:04d}.vtk'))
-    dump_vtk(u[-1], dx, dy, dz, origin=meta_data['crop_offset'],
-             path=os.path.join(out_dir, f'seg_final.vtk'))
+    elif dump_results_mode == 'last_only':
+        dump_vtk(u[-1], dx, dy, dz, origin=meta_data['crop_offset'],
+                 path=os.path.join(out_dir, f'seg_final.vtk'))
+    elif dump_results_mode == 'none':
+        pass
+    else:
+        raise ValueError(f'unknown dump_results_mode flag, got {dump_results_mode}')
+
 
 
 def main():
