@@ -82,7 +82,8 @@ def main():
             loss = compute_loss(path=out_dir)
             return -beta * loss
         except:
-            return -np.inf
+            #return -np.inf
+            return -1e9
 
     def prior_sampler(rng):
         return rng.uniform(lo, hi)

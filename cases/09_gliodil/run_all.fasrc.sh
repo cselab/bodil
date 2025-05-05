@@ -44,5 +44,5 @@ EOS
 }
 
 sigma_data=0.05
-#run_case 034 $sigma_data
-run_case 020 $sigma_data
+run_case 034 $sigma_data
+#run_case 020 $sigma_data
