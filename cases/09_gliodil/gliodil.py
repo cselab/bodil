@@ -282,9 +282,12 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     u = mg.get().detach().cpu().numpy()
     uend = u[-1,:,:,:]
 
-    for it in range(Nt):
-        dump_vtk(u[it], dx, dy, dz, origin=meta_data['crop_offset'],
-                 path=os.path.join(out_dir, f'seg_{it:04d}.vtk'))
+    if False:
+        for it in range(Nt):
+            dump_vtk(u[it], dx, dy, dz, origin=meta_data['crop_offset'],
+                     path=os.path.join(out_dir, f'seg_{it:04d}.vtk'))
+    dump_vtk(u[-1], dx, dy, dz, origin=meta_data['crop_offset'],
+             path=os.path.join(out_dir, f'seg_final.vtk'))
 
 
 def main():
