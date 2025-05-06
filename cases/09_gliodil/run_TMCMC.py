@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--seed", type=int, default=21387875, help="Random seed.")
     parser.add_argument("--sigma-data", type=float, default=0.05, help="Per-voxel data segmentation error parameter.")
     parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
+    parser.add_argument('--restart-from', type=str, default=None, help='if set, restart from this directory')
     args = parser.parse_args()
 
     data_path = args.data_path
@@ -42,6 +43,7 @@ def main():
     nsamples = args.nsamples
     seed = args.seed
     Nt, Nx, Ny, Nz = args.NtNxNyNz
+    path_to_restart = args.restart_from
     trim_scale = 1.5
 
     lo, hi = compute_bounds(data_path)
@@ -74,9 +76,13 @@ def main():
                             dump_raw_to_vtk=False,
                             device=device, num_epochs=5000,
                             verbose=False, trim_scale=trim_scale)
+        except FileNotFoundError as e:
+            print(f"Rank {rank}: Failed on {MPI.Get_processor_name()}, Device: {device}, Exception: {e}", file=sys.stderr)
+            sys.stderr.flush()
+            exit(1)
         except Exception as e:
-            print(f"Rank {rank}: Failed on {MPI.Get_processor_name()}, Device: {device}, Exception: {e}")
-            sys.stdout.flush()
+            print(f"Rank {rank}: Failed on {MPI.Get_processor_name()}, Device: {device}, Exception: {e}", file=sys.stderr)
+            sys.stderr.flush()
         try:
             loss = compute_loss(path=out_dir)
             return -beta * loss
@@ -111,7 +117,8 @@ def main():
                               comm=comm,
                               seed=seed,
                               callback=callback,
-                              checkpoint_dir=os.path.join(base_dir, '__checkpoint'))
+                              checkpoint_dir=os.path.join(base_dir, '__checkpoint'),
+                              restart_from_dir=path_to_restart)
 
     if rank == 0:
         print(f"evidence: {evidence}")
