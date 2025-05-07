@@ -65,7 +65,7 @@ LOOKUP_TABLE default
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
-                num_epochs=5000, lr=1e-3, report_every=100,
+                num_epochs=3000, lr=1e-3, report_every=100,
                 verbose=True, tend=50.0, lambda_pde=129, lambda_ic=100,
                 matter_th=0.1, dump_raw_to_vtk=False,
                 xyz0=None, dump_results_mode='last_only'):
@@ -272,7 +272,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=50, min_lr=1e-4)
 
     f_train_output = open(os.path.join(out_dir, 'train_history.csv'), 'w')
-    print('epoch,pde_loss,data_loss,ic_loss,loss', file=f_train_output, flush=True)
+    print('epoch,pde_loss,data_loss,ic_loss,loss,Dw,log_R,rho,x0,y0,z0,th_lo,th_hi', file=f_train_output, flush=True)
 
     for epoch in range(num_epochs):
         optim.zero_grad()
@@ -291,7 +291,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
         l = loss.item()
 
-        print(f'{epoch},{pde_loss.item()},{data_loss.item()},{ic_loss.item()},{l}', file=f_train_output, flush=True)
+        print(f'{epoch},{pde_loss.item()},{data_loss.item()},{ic_loss.item()},{l},{",".join(str(float(val)) for val in params)}',
+              file=f_train_output, flush=True)
 
         scheduler.step(l)
 
@@ -334,7 +335,9 @@ def main():
     run_gliodil(data_path=args.data_path,
                 Nt=Nt, Nx=Nx, Ny=Ny, Nz=Nz,
                 device=device, out_dir=out_dir,
-                dump_raw_to_vtk=True, xyz0=args.xyz0)
+                dump_raw_to_vtk=True,
+                xyz0=args.xyz0,
+                dump_results_mode='all')
 
 if __name__ == '__main__':
     main()
