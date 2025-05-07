@@ -126,6 +126,11 @@ def load_data(data_path, trim_scale=1.5):
 
     return meta_data, raw_data, trimmed_data
 
+def get_grid_spacing(header):
+    Q, dx, dy, dz, dt, _, _, _ = header['pixdim']
+    return dx, dy, dz
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data_path', type=str, help='path to .nii files')

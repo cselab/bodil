@@ -98,13 +98,14 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                                               Nt_ODIL=Nt, xyz0=xyz0, verbose=verbose)
 
     meta_data, raw_data, trimmed_data = load_data(data_path, trim_scale)
+    dx_raw, dy_raw, dz_raw = get_grid_spacing(meta_data['nifti_header'])
 
     if dump_raw_to_vtk:
-        dump_vtk(raw_data['gm'], dx=1, dy=1, dz=1, origin=(0.0, 0.0, 0.0), varname='gm',
+        dump_vtk(raw_data['gm'], dx=dx_raw, dy=dy_raw, dz=dz_raw, origin=(0.0, 0.0, 0.0), varname='gm',
                  path=os.path.join(out_dir, 'gm.vtk'))
-        dump_vtk(raw_data['wm'], dx=1, dy=1, dz=1, origin=(0.0, 0.0, 0.0), varname='wm',
+        dump_vtk(raw_data['wm'], dx=dx_raw, dy=dy_raw, dz=dz_raw, origin=(0.0, 0.0, 0.0), varname='wm',
                  path=os.path.join(out_dir, 'wm.vtk'))
-        dump_vtk(raw_data['seg'], dx=1, dy=1, dz=1, origin=(0.0, 0.0, 0.0), varname='seg',
+        dump_vtk(raw_data['seg'], dx=dx_raw, dy=dy_raw, dz=dz_raw, origin=(0.0, 0.0, 0.0), varname='seg',
                  path=os.path.join(out_dir, 'seg.vtk'))
 
     # adjust data
@@ -115,7 +116,11 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
     assert gm.shape[0] == Nx and  gm.shape[1] == Ny and  gm.shape[2] == Nz
     assert len(np.unique(seg)) <= 3
 
-    Lx, Ly, Lz = trimmed_shape # mm
+    Nx_raw, Ny_raw, Nz_raw = trimmed_shape
+    Lx = Nx_raw * dx_raw
+    Ly = Ny_raw * dy_raw
+    Lz = Nz_raw * dz_raw
+
     dx = Lx / Nx
     dy = Ly / Ny
     dz = Lz / Nz
