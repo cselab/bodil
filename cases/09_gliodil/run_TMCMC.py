@@ -97,7 +97,7 @@ def main():
             return -1e9
 
     def prior_sampler(rng):
-        return rng.uniform(lo, hi)
+        return rng.uniform(lo, hi) - lo
 
     def log_prior_density(x):
         return - 2 * np.log(np.prod(hi-lo))
