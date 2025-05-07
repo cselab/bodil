@@ -6,7 +6,7 @@ import os
 import torch
 from scipy.ndimage import zoom
 
-from prepare_data import load_data, SEG_CODE
+from prepare_data import load_data, SEG_CODE, get_grid_spacing
 
 def center_of_mass(X, Y, Z, mask):
     V = np.sum(mask)
@@ -100,6 +100,8 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, xyz0=None, ver
         params: dictionary of parameters that were used in simulation
     """
     meta_data, raw_data, trimmed_data = load_data(data_path, trim_scale)
+    dx_raw, dy_raw, dz_raw = get_grid_spacing(meta_data['nifti_header'])
+
     # adjust data
     trimmed_shape = trimmed_data['seg'].shape
     seg = zoom(trimmed_data['seg'], (Nx/trimmed_shape[0], Ny/trimmed_shape[1], Nz/trimmed_shape[2]), order=0).clip(0.0)
@@ -112,7 +114,11 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, xyz0=None, ver
     maxsteps = 1000
     dt = tend / maxsteps
 
-    Lx, Ly, Lz = trimmed_shape # mm
+    Nx_raw, Ny_raw, Nz_raw = trimmed_shape
+    Lx = Nx_raw * dx_raw
+    Ly = Ny_raw * dy_raw
+    Lz = Nz_raw * dz_raw
+
     dx = Lx / Nx
     dy = Ly / Ny
     dz = Lz / Nz
