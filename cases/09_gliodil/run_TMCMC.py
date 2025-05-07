@@ -97,6 +97,7 @@ def main():
             return -1e9
 
     def prior_sampler(rng):
+        # coordinates in simulations are in [0, hi-lo]
         return rng.uniform(lo, hi) - lo
 
     def log_prior_density(x):
