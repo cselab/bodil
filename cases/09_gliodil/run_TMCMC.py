@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--sigma-data", type=float, default=0.05, help="Per-voxel data segmentation error parameter.")
     parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
     parser.add_argument('--restart-from', type=str, default=None, help='if set, restart from this directory')
+    parser.add_argument('--lambda-pde', type=float, default=129, help='weight for PDE loss')
+    parser.add_argument('--lambda-ic', type=float, default=100, help='weight for IC loss')
     args = parser.parse_args()
 
     data_path = args.data_path
@@ -45,6 +47,9 @@ def main():
     Nt, Nx, Ny, Nz = args.NtNxNyNz
     path_to_restart = args.restart_from
     trim_scale = 1.5
+
+    lambda_ic = args.lambda_ic
+    lambda_pde = args.lambda_pde
 
     lo, hi = compute_bounds(data_path)
 
@@ -74,7 +79,8 @@ def main():
                             out_dir=out_dir,
                             xyz0=[x0, y0, z0],
                             dump_raw_to_vtk=False,
-                            device=device, num_epochs=5000,
+                            device=device, num_epochs=2000, lr=1e-3,
+                            lambda_pde=lambda_pde, lambda_ic=lambda_ic,
                             verbose=False, trim_scale=trim_scale)
         except FileNotFoundError as e:
             print(f"Rank {rank}: Failed on {MPI.Get_processor_name()}, Device: {device}, Exception: {e}", file=sys.stderr)

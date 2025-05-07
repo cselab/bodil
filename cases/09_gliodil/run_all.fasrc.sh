@@ -5,15 +5,20 @@
 : ${nprocs=8}
 : ${tasks_per_node=1}
 : ${nsamples=128}
+: ${lambda_pde=129}
+: ${lambda_ic=100}
 
 run_case() {
     patient_code=$1; shift
     sigma_data=$1; shift
 
-    outdir=$SCRATCH/uq-odil/gliodil/results_patient_${patient_code}_sigma_data_${sigma_data}
+    outdir=$SCRATCH/uq-odil/gliodil/results_patient_${patient_code}_sigma_data_${sigma_data}_lambda_pde_${lambda_pde}_lambda_ic_${lambda_ic}
     mkdir -p $outdir
 
     data_path=$SCRATCH/uq-odil/data_GliODIL_essential/data_${patient_code}
+
+    #extra="--restart-from $outdir/out_TMCMC/__checkpoint"
+    extra=""
 
     nodes=$(($nprocs/$tasks_per_node))
 
@@ -37,7 +42,10 @@ srun --mpi=pmix -n $nprocs ./run_TMCMC.py \
        --nsamples $nsamples \
        --base-out-dir $outdir/out_TMCMC \
        --NtNxNyNz 257 64 64 64 \
-       --sigma-data $sigma_data
+       --sigma-data $sigma_data \
+       --lambda-pde $lambda_pde \
+       --lambda-ic $lambda_ic \
+       $extra
 EOS
 
     sbatch $batch

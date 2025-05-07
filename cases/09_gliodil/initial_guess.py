@@ -126,10 +126,7 @@ def get_initial_guess(data_path, Nx, Ny, Nz, trim_scale, Nt_ODIL, xyz0=None, ver
     if xyz0 is None:
         x0, y0, z0 = center_of_mass(X, Y, Z, np.where(seg == SEG_CODE.core, 1.0, 0.0))
     else:
-        try:
-            x0, y0, z0 = xyz0
-        except:
-            raise ValueError(f"xyz0 must be either set to None or to a list of 3 floats. Got {xyz0}.")
+        x0, y0, z0 = xyz0
 
     volume_edema = np.sum(np.where(seg == SEG_CODE.edema, 1.0, 0.0))
     volume_core  = np.sum(np.where(seg == SEG_CODE.core , 1.0, 0.0))
