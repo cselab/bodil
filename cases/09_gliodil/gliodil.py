@@ -10,6 +10,7 @@ from scipy.ndimage import zoom
 from prepare_data import load_data, SEG_CODE, restore_cropped_data, get_grid_spacing
 from uq_odil.multigrid import MultigridField
 from initial_guess import get_initial_guess
+from utils import dump_vtk
 
 def get_matter_portions(gm, wm, threshold, device):
     """
@@ -42,25 +43,6 @@ def dump_nii(u, th_lo, th_hi, raw_data, meta_data, trim_scale, trimmed_shape, pa
     nifti_file = nib.Nifti1Image(seg, meta_data['nifti_affine'], header=meta_data['nifti_header'])
     nib.save(nifti_file, path)
 
-def dump_vtk(u, dx, dy, dz, origin, path, varname='u'):
-    nx, ny, nz = u.shape
-    num_points = nx * ny * nz
-    spacing = (dx, dy, dz)
-
-    with open(path, "wb") as f:
-        header = f"""# vtk DataFile Version 3.0
-Binary uniform grid
-BINARY
-DATASET STRUCTURED_POINTS
-DIMENSIONS {nz} {ny} {nx}
-ORIGIN {origin[2]} {origin[1]} {origin[0]}
-SPACING {spacing[2]} {spacing[1]} {spacing[0]}
-POINT_DATA {num_points}
-SCALARS {varname} float
-LOOKUP_TABLE default
-"""
-        f.write(header.encode("utf-8"))
-        f.write(u.astype('>f4').tobytes())  # '>f4' = big-endian float32
 
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
