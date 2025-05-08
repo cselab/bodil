@@ -1,4 +1,4 @@
-find data/PWIP -name '*.mat' -print0 |
+find data/PWIP/patientData -name '*.mat' -print0 |
 xargs -0 -n 1 --process-slot-var I -P 4 sh -xc '
 o=`basename $0 .mat`
 mkdir -p out/$o
