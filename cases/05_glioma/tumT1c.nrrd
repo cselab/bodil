@@ -1,6 +1,0 @@
-NRRD0001
-type: float
-dimension: 3
-sizes: 256 256 256
-encoding: raw
-data file: tumT1c.raw
