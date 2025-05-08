@@ -5,8 +5,8 @@
 : ${nprocs=8}
 : ${tasks_per_node=1}
 : ${nsamples=128}
-: ${lambda_pde=129}
-: ${lambda_ic=100}
+: ${lambda_pde=1000}
+: ${lambda_ic=200}
 
 run_case() {
     patient_code=$1; shift

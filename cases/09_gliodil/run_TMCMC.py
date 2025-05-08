@@ -36,8 +36,8 @@ def main():
     parser.add_argument("--sigma-data", type=float, default=0.05, help="Per-voxel data segmentation error parameter.")
     parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
     parser.add_argument('--restart-from', type=str, default=None, help='if set, restart from this directory')
-    parser.add_argument('--lambda-pde', type=float, default=129, help='weight for PDE loss')
-    parser.add_argument('--lambda-ic', type=float, default=100, help='weight for IC loss')
+    parser.add_argument('--lambda-pde', type=float, default=100, help='weight for PDE loss')
+    parser.add_argument('--lambda-ic', type=float, default=200, help='weight for IC loss')
     args = parser.parse_args()
 
     data_path = args.data_path
@@ -47,6 +47,7 @@ def main():
     Nt, Nx, Ny, Nz = args.NtNxNyNz
     path_to_restart = args.restart_from
     trim_scale = 1.5
+    sigma_data = args.sigma_data
 
     lambda_ic = args.lambda_ic
     lambda_pde = args.lambda_pde
@@ -60,8 +61,7 @@ def main():
     cuda_id = rank % torch.cuda.device_count()
     device = torch.device(f"cuda:{cuda_id}" if torch.cuda.is_available() else "cpu")
 
-    sigma_data = args.sigma_data
-    beta = Nx * Ny * Ny / sigma_data
+    beta = Nx * Ny * Ny
 
     def log_likelihood(sample, context):
         x0, y0, z0 = sample
@@ -79,8 +79,9 @@ def main():
                             out_dir=out_dir,
                             xyz0=[x0, y0, z0],
                             dump_raw_to_vtk=False,
-                            device=device, num_epochs=2000, lr=1e-3,
+                            device=device, num_epochs=5000, lr=1e-3,
                             lambda_pde=lambda_pde, lambda_ic=lambda_ic,
+                            sigma_data=sigma_data,
                             verbose=False, trim_scale=trim_scale)
         except FileNotFoundError as e:
             print(f"Rank {rank}: Failed on {MPI.Get_processor_name()}, Device: {device}, Exception: {e}", file=sys.stderr)

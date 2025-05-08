@@ -47,8 +47,9 @@ def dump_nii(u, th_lo, th_hi, raw_data, meta_data, trim_scale, trimmed_shape, pa
 
 def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
                 trim_scale=1.5,
-                num_epochs=3000, lr=1e-3, report_every=100,
-                verbose=True, tend=50.0, lambda_pde=129, lambda_ic=100,
+                num_epochs=5000, lr=1e-3, report_every=100,
+                verbose=True, tend=50.0,
+                lambda_pde=1e3, lambda_ic=200, sigma_data=0.05,
                 matter_th=0.1, dump_raw_to_vtk=False,
                 xyz0=None, dump_results_mode='last_only'):
     """
@@ -206,7 +207,7 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
         Dt = 15.0
 
         u0 = M / (4 * np.pi * Dt)**(3/2) * torch.exp(-dsq / (4 * Dt))
-        u0 = torch.where(u0 > 0.1, torch.where(u0 < 1.0, u0, 1.0), 0.0)
+        u0 = torch.where(u0 > matter_th, torch.where(u0 < 1.0, u0, 1.0), 0.0)
         res_ic = u[0,:,:,:] - u0
 
         return lambda_ic * torch.mean(res_ic**2)
@@ -220,8 +221,8 @@ def run_gliodil(data_path, Nt, Nx, Ny, Nz, device, out_dir,
 
         # residuals of values that are too low
         relu = torch.nn.functional.relu
-        res_lo = relu(lower_vals - uend)
-        res_hi = relu(uend - upper_vals)
+        res_lo = relu(lower_vals - uend) / sigma_data
+        res_hi = relu(uend - upper_vals) / sigma_data
 
         return torch.mean(res_lo + res_hi)
 
