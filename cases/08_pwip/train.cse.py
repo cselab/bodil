@@ -203,9 +203,13 @@ plt.savefig("train.pa.png")
 plt.close()
 dp = np.max(pf, axis=1) - np.min(pf, axis=1)
 da = np.max(af, axis=1) - np.min(af, axis=1)
-plt.plot(xf[:, 0], da / dp * As / Ps, 'o-')
+kp = da / dp * As / Ps
+plt.plot(xf[:, 0], kp, 'o-')
 plt.savefig("train.kp.png")
 plt.close()
+with open("train.kp.dat", "w") as file:
+    for x0, kp0 in zip(xf[:, 0], kp):
+        file.write("%.16e %.16e\n" % (x0, kp0))
 output = np.empty_like(data)[:, :, :4]
 output[:, :, 0] = area
 output[:, :, 1] = flow
