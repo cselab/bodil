@@ -7,6 +7,7 @@ import pickle
 from scipy.stats import norm, truncnorm
 import scipy.optimize as optimize
 import sys
+import warnings
 
 def _eval_log_like(samples, log_likelihood_func, comm, context):
     rank = comm.Get_rank()
@@ -113,7 +114,9 @@ def TMCMC(log_likelihood,
             a = np.exp((z-zeta0) * log_fvals)
             return np.std(a) / np.mean(a)
 
-        res = optimize.fsolve(lambda z: cv(z[0]) - gamma, x0=[zeta])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = optimize.fsolve(lambda z: cv(z[0]) - gamma, x0=[zeta])
         zeta = max([zeta + min_zeta_progress, res[0]])
         zeta = min([1.0, zeta])
 
