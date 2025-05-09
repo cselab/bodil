@@ -4,5 +4,6 @@ data_GliODIL_essential
 *.nii
 *.nii.gz
 *.csv
+*.png
 *.vtk
 slurm*.out
