@@ -22,6 +22,7 @@ def main():
     args = parser.parse_args()
 
     torch.set_default_dtype(torch.float32)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     out_dir = args.out_dir
     data_path = args.data
@@ -31,7 +32,7 @@ def main():
     num_epochs = 10000
     report_every = 250
     lr = 1e-2
-    lambda_PDE = 10
+    lambda_PDE = 1e3
     lambda_data = 1
 
     data = scipy.io.loadmat(data_path)
@@ -66,8 +67,8 @@ def main():
     #print(f"P0 = {P0 * m_scale / t_scale**2 / l_scale} Pa, A0 = {A0} mm**2")
 
     # transfer data to pytorch
-    data_A_ = torch.from_numpy(data_A)
-    data_u_ = torch.from_numpy(data_u)
+    data_A_ = torch.from_numpy(data_A).to(device)
+    data_u_ = torch.from_numpy(data_u).to(device)
 
     def pde_loss(kp, u, P, A0m, Kr):
         dPdt = torch.diff((P[:,:-1] + P[:,1:]) / 2, dim=0) / dt
@@ -94,10 +95,10 @@ def main():
     # unknowns
     u = data_u_.clone().detach()
     u.requires_grad = True
-    kp0 = 1e-8 / k_scale
-    kp = torch.full((nx-1,), fill_value=kp0, requires_grad=True)
+    kp0 = 7e-9 / k_scale
+    kp = torch.full((nx-1,), fill_value=kp0, requires_grad=True, device=device)
 
-    A0m = torch.from_numpy(A0m)
+    A0m = torch.from_numpy(A0m).to(device)
     A0m.requires_grad = True
 
     # initial guess of P
@@ -105,7 +106,7 @@ def main():
     P.requires_grad = True
 
     optim = torch.optim.Adam([kp, u, P, A0m], lr=lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=2000, gamma=0.7)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=500, gamma=0.7)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -143,7 +144,7 @@ def main():
     xm = (x[:-1] + x[1:]) / 2
     t = data_t[:,0]
 
-    kp_ = kp.detach().numpy() * k_scale
+    kp_ = kp.detach().cpu().numpy() * k_scale
 
     fig, ax = plt.subplots()
     ax.plot(xm, kp_)
@@ -158,7 +159,7 @@ def main():
     x0 = data_x[0, 0]
     x1 = data_x[0, -1]
 
-    u = u.detach().numpy() * l_scale / t_scale * 100 # m/s -> cm/s
+    u = u.detach().cpu().numpy() * l_scale / t_scale * 100 # m/s -> cm/s
     du = np.abs(u - data_u * l_scale / t_scale * 100)
 
     fig, ax = plt.subplots()
@@ -179,7 +180,7 @@ def main():
     plt.savefig(os.path.join(out_dir, "du.pdf"))
     plt.close()
 
-    P = P.detach().numpy() * m_scale / l_scale / t_scale**2
+    P = P.detach().cpu().numpy() * m_scale / l_scale / t_scale**2
     dP = np.abs(P - data_P * m_scale / l_scale / t_scale**2)
 
     fig, ax = plt.subplots()
@@ -201,7 +202,7 @@ def main():
     plt.close()
 
     Pm = (P[:,1:] + P[:,:-1]) / 2
-    A = A0m.detach().numpy() * l_scale**2 + kp_ * Pm
+    A = A0m.detach().cpu().numpy() * l_scale**2 + kp_ * Pm
     A *= 1e6 # m^2 -> mm^2
 
     data_Am = (data_A[:,1:] + data_A[:,:-1]) / 2
