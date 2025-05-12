@@ -8,11 +8,12 @@ import pandas as pd
 import scipy
 import torch
 
-def find_A0_P0(data_u, data_A, data_P):
-    i, j = np.unravel_index(np.argmin(data_u**2), data_u.shape)
-    A0 = data_A[i, j]
-    P0 = data_P[i, j]
-    return A0, P0
+def init_guess_A0_P0(data_A, data_P):
+    A0 = np.mean(data_A, axis=0)
+    P0 = np.mean(data_P, axis=0)
+    A0m = (A0[1:] + A0[:-1]) / 2
+    P0m = (P0[1:] + P0[:-1]) / 2
+    return A0m, P0m
 
 def main():
     parser = argparse.ArgumentParser()
@@ -27,10 +28,10 @@ def main():
 
     os.makedirs(out_dir, exist_ok=True)
 
-    num_epochs = 5000
+    num_epochs = 10000
     report_every = 250
     lr = 1e-2
-    lambda_PDE = 1000
+    lambda_PDE = 10
     lambda_data = 1
 
     data = scipy.io.loadmat(data_path)
@@ -41,14 +42,19 @@ def main():
     l_scale = 1e-3 # 1mm
     t_scale = 1e-3 # 1ms
     m_scale = 1e-6 # mg
+    v_scale = l_scale / t_scale
+    p_scale = m_scale / (l_scale * t_scale**2)
+    k_scale = l_scale**3 * t_scale**2 / m_scale
 
     data_t /= t_scale
     data_x /= l_scale
     data_A /= l_scale**2
-    data_u *= t_scale / l_scale
-    data_P *= t_scale**2 * l_scale / m_scale
+    data_u /= v_scale
+    data_P /= p_scale
 
-    A0, P0 = find_A0_P0(data_u, data_A, data_P)
+    A0m, P0m = init_guess_A0_P0(data_A, data_P)
+    P0 = np.mean(P0m)
+    del P0m
     Kr = 0
     rho = 1000.689275457646
 
@@ -57,13 +63,13 @@ def main():
     dt = data_t[1,0] - data_t[0,0]
     dx = data_x[0,1] - data_x[0,0]
     print(f"dx = {dx} mm, dt = {dt} ms")
-    print(f"P0 = {P0 * m_scale / t_scale**2 / l_scale} Pa, A0 = {A0} mm**2")
+    #print(f"P0 = {P0 * m_scale / t_scale**2 / l_scale} Pa, A0 = {A0} mm**2")
 
     # transfer data to pytorch
     data_A_ = torch.from_numpy(data_A)
     data_u_ = torch.from_numpy(data_u)
 
-    def pde_loss(kp, u, P, A0, Kr):
+    def pde_loss(kp, u, P, A0m, Kr):
         dPdt = torch.diff((P[:,:-1] + P[:,1:]) / 2, dim=0) / dt
         dPdx = torch.diff((P[:-1,:] + P[1:,:]) / 2, dim=1) / dx
 
@@ -72,15 +78,15 @@ def main():
 
         #umm = (u[:-1,:-1] + u[1:,:-1] + u[:-1,1:] + u[1:,1:]) / 4
 
-        res0 = kp[None, :] * dPdt + A0 * dudx
+        res0 = kp[None, :] * dPdt + A0m * dudx
         res1 = dudt + dPdx / rho #+ Kr * umm
 
         return lambda_PDE * (torch.mean(res0**2) + torch.mean(res1**2))
 
-    def data_loss(kp, u, P, A0):
+    def data_loss(kp, u, P, A0m, P0):
         data_Am = (data_A_[:,:-1] + data_A_[:,1:]) / 2
         Pm = (P[:,:-1] + P[:,1:]) / 2
-        res_A = data_Am - A0 - kp[None,:] * (Pm - P0)
+        res_A = data_Am - A0m - kp[None,:] * (Pm - P0)
         res_u = data_u_ - u
 
         return lambda_data * (torch.mean(res_A**2) + torch.mean(res_u**2))
@@ -88,15 +94,18 @@ def main():
     # unknowns
     u = data_u_.clone().detach()
     u.requires_grad = True
-    kp0 = 0.8
+    kp0 = 1e-8 / k_scale
     kp = torch.full((nx-1,), fill_value=kp0, requires_grad=True)
 
+    A0m = torch.from_numpy(A0m)
+    A0m.requires_grad = True
+
     # initial guess of P
-    P = (data_A_.clone() - A0) / kp0 + P0
+    P = (data_A_.clone() - torch.mean(A0m.detach())) / kp0 + P0
     P.requires_grad = True
 
-    optim = torch.optim.Adam([kp, u, P], lr=lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=300, gamma=0.7)
+    optim = torch.optim.Adam([kp, u, P, A0m], lr=lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=2000, gamma=0.7)
 
     epochs = list(range(num_epochs))
     pde_losses = []
@@ -105,8 +114,8 @@ def main():
 
     for epoch in epochs:
         optim.zero_grad()
-        ploss = pde_loss(kp, u, P, A0, Kr)
-        dloss = data_loss(kp, u, P, A0)
+        ploss = pde_loss(kp, u, P, A0m, Kr)
+        dloss = data_loss(kp, u, P, A0m, P0)
         loss = ploss + dloss
         loss.backward()
         optim.step()
@@ -134,7 +143,7 @@ def main():
     xm = (x[:-1] + x[1:]) / 2
     t = data_t[:,0]
 
-    kp_ = kp.detach().numpy() * l_scale**3 * t_scale**2 / m_scale
+    kp_ = kp.detach().numpy() * k_scale
 
     fig, ax = plt.subplots()
     ax.plot(xm, kp_)
@@ -192,7 +201,7 @@ def main():
     plt.close()
 
     Pm = (P[:,1:] + P[:,:-1]) / 2
-    A = A0.item() * l_scale**2 + kp_ * Pm
+    A = A0m.detach().numpy() * l_scale**2 + kp_ * Pm
     A *= 1e6 # m^2 -> mm^2
 
     data_Am = (data_A[:,1:] + data_A[:,:-1]) / 2
@@ -216,6 +225,13 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "dA.pdf"))
     plt.close()
+
+    data = {
+        'x': xm,
+        'kp': kp_
+    }
+    df = pd.DataFrame(data)
+    df.to_csv(os.path.join(out_dir, 'kp.csv'), index=False)
 
 if __name__ == '__main__':
     main()
