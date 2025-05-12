@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
-from tensorflow.keras import backend as K
-import matplotlib.pyplot as plt
-import numpy as np
-import scipy
-import sys
-import tensorflow as tf
+import argparse
 import math
+import sys
+import os
 
 
 def xavier_init(n, m):
@@ -93,22 +90,53 @@ def plot(field, path):
     plt.close()
 
 
+parser = argparse.ArgumentParser(description="Train PINN model on ST data.")
+parser.add_argument("--matfile",
+                    "-m",
+                    required=True,
+                    type=str,
+                    help="Path to the input .mat file")
+parser.add_argument("--i1",
+                    required=True,
+                    type=int,
+                    help="Number of iterations for phase 1 training")
+parser.add_argument("--i2",
+                    required=True,
+                    type=int,
+                    help="Number of iterations for phase 2 training")
+parser.add_argument("--period",
+                    "-p",
+                    required=True,
+                    type=int,
+                    help="Logging and output saving period")
+parser.add_argument("--output",
+                    "-o",
+                    required=True,
+                    type=str,
+                    help="Output directory prefix")
+args = parser.parse_args()
+output_dir = os.path.dirname(args.output)
+if output_dir:
+    os.makedirs(output_dir, exist_ok=True)
+
+from tensorflow.keras import backend as K
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import scipy
+import numpy as np
+
 plt.rcParams['image.cmap'] = 'jet'
 tf.random.set_seed(12345)
 tf.keras.backend.set_floatx("float32")
 float_type = tf.float32
 
-data = scipy.io.loadmat(sys.argv[1])
+data = scipy.io.loadmat(args.matfile)
 for key in "matrix_var", "STPWIP", "PWIP_output":
     if key in data:
         data = data[key]
         break
 else:
     sys.stderr.write("train.cse.py: no data in file '%s'\n" % path)
-
-iterations_1 = int(sys.argv[2])
-iterations_2 = int(sys.argv[3])
-period = int(sys.argv[4])
 
 ST = data[::8, :, :]
 A = ST[:, :, 0]
@@ -167,19 +195,19 @@ lr = tf.keras.optimizers.schedules.ExponentialDecay(1e-3,
                                                     decay_rate=0.9)
 opt = tf.keras.optimizers.Adam(learning_rate=lr)
 step = tf.function(train_step)
-for epoch in range(iterations_1):
+for epoch in range(args.i1):
     loss, (a, u, p) = step(0.01, 10, True, opt)
-    if epoch % period == 0:
-        sys.stdout.write("0 %08d %10.2e\n" % (epoch, loss))
+    if epoch % args.period == 0:
+        sys.stdout.write("0 %08d %10.4e\n" % (epoch, loss))
 lr = tf.keras.optimizers.schedules.ExponentialDecay(1e-4,
                                                     decay_steps=1000,
                                                     decay_rate=0.9)
 opt = tf.keras.optimizers.Adam(learning_rate=lr)
 step = tf.function(train_step)
-for epoch in range(iterations_2):
+for epoch in range(args.i2):
     loss, (a, u, p) = step(10, 100, False, opt)
-    if epoch % period == 0:
-        sys.stdout.write("1 %08d %10.2e\n" % (epoch, loss))
+    if epoch % args.period == 0:
+        sys.stdout.write("1 %08d %10.4e\n" % (epoch, loss))
 t0, t1 = tf0[0, 0], tf0[0, -1]
 x0, x1 = xf[0, 0], xf[-1, 0]
 
@@ -190,24 +218,24 @@ ax = tape.gradient(af, xwf)
 area = (af + amean) * As
 flow = (uf + umean) * Us
 pressure = pf * Ps
-plot(data[:, :, 0], "train.a0.png")
-plot(area, "train.a1.png")
-plot(data[:, :, 1], "train.u0.png")
-plot(flow, "train.u1.png")
-plot(data[:, :, 2], "train.p0.png")
-plot(pressure, "train.p1.png")
-plot(ax, "train.ax.png")
+plot(data[:, :, 0], args.output + "a0.png")
+plot(area, args.output + "a1.png")
+plot(data[:, :, 1], args.output + "u0.png")
+plot(flow, args.output + "u1.png")
+plot(data[:, :, 2], args.output + "p0.png")
+plot(pressure, args.output + "p1.png")
+plot(ax, args.output + "ax.png")
 plt.plot(tf.experimental.numpy.flatten(area),
          tf.experimental.numpy.flatten(pressure), "x")
-plt.savefig("train.pa.png")
+plt.savefig(args.output + "pa.png")
 plt.close()
 dp = np.max(pf, axis=1) - np.min(pf, axis=1)
 da = np.max(af, axis=1) - np.min(af, axis=1)
 kp = da / dp * As / Ps
 plt.plot(xf[:, 0], kp, 'o-')
-plt.savefig("train.kp.png")
+plt.savefig(args.output + "kp.png")
 plt.close()
-with open("train.kp.dat", "w") as file:
+with open(args.output + "kp.dat", "w") as file:
     for x0, kp0 in zip(xf[:, 0], kp):
         file.write("%.16e %.16e\n" % (x0, kp0))
 output = np.empty_like(data)[:, :, :4]
@@ -216,4 +244,4 @@ output[:, :, 1] = flow
 output[:, :, 2] = pressure
 output[:, :, 3] = ax
 
-scipy.io.savemat("output.mat", {"PWIP_output": output})
+scipy.io.savemat(args.output + "output.mat", {"PWIP_output": output})
