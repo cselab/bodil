@@ -2,9 +2,9 @@
 
 #set -eu
 
-: ${nprocs=8}
-: ${tasks_per_node=1}
-: ${nsamples=128}
+: ${nprocs=32}
+: ${tasks_per_node=4}
+: ${nsamples=512}
 : ${lambda_pde=1000}
 : ${lambda_ic=200}
 
@@ -12,7 +12,7 @@ run_case() {
     patient_code=$1; shift
     sigma_data=$1; shift
 
-    outdir=$SCRATCH/uq-odil/gliodil/results_patient_${patient_code}_sigma_data_${sigma_data}_lambda_pde_${lambda_pde}_lambda_ic_${lambda_ic}
+    outdir=$SCRATCH/uq-odil/gliodil/results_patient_${patient_code}_sigma_data_${sigma_data}_lambda_pde_${lambda_pde}_lambda_ic_${lambda_ic}_nsamples_${nsamples}
     mkdir -p $outdir
 
     data_path=$SCRATCH/uq-odil/data_GliODIL_essential/data_${patient_code}
@@ -31,7 +31,7 @@ run_case() {
 #SBATCH -t 2-00:00 # time (D-HH:MM)
 #SBATCH --job-name=p${patient_code}_s${sigma_data}
 #SBATCH --constraint=h100
-#SBATCH --gres=gpu
+#SBATCH --gres=gpu:${tasks_per_node}
 #SBATCH --mem=40G
 
 module load gcc/14.2.0-fasrc01 openmpi/5.0.5-fasrc01 python/3.12.8-fasrc01

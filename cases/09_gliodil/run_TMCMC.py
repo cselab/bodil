@@ -120,7 +120,7 @@ def main():
                               log_prior_density=log_prior_density,
                               prior_sampler=prior_sampler,
                               beta=0.2,
-                              gamma=1,
+                              gamma=1.5,
                               num_samples=nsamples,
                               comm=comm,
                               seed=seed,
