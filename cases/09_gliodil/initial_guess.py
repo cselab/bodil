@@ -3,10 +3,10 @@
 import argparse
 import numpy as np
 import os
-import torch
 from scipy.ndimage import zoom
 
 from prepare_data import load_data, SEG_CODE, get_grid_spacing
+from forward import compute_D, advance, initial_density
 
 def center_of_mass(X, Y, Z, mask):
     V = np.sum(mask)
@@ -14,57 +14,6 @@ def center_of_mass(X, Y, Z, mask):
     y = np.sum(Y * mask) / V
     z = np.sum(Z * mask) / V
     return x, y, z
-
-def get_matter_portions(gm, wm, threshold):
-    """
-    threshold: crop density to zero when wm + gm <= threshold
-    """
-    def get_tilda(a, b, axis):
-        val = np.where(np.logical_and(np.roll(a + b, -1, axis=axis) >= threshold, a + b >= threshold),
-                       (np.roll(a, -1, axis=axis) + a) / 2,
-                       0.0)
-        return val
-
-    return {
-        'wm_t_x': get_tilda(wm, gm, 0),
-        'wm_t_y': get_tilda(wm, gm, 1),
-        'wm_t_z': get_tilda(wm, gm, 2),
-        'gm_t_x': get_tilda(gm, wm, 0),
-        'gm_t_y': get_tilda(gm, wm, 1),
-        'gm_t_z': get_tilda(gm, wm, 2)
-    }
-
-def compute_D(gm, wm, Dg, Dw):
-    matter = get_matter_portions(gm=gm, wm=wm, threshold=0.1)
-
-    Dxm = Dw * matter['wm_t_x'] + Dg * matter['gm_t_x']
-    Dym = Dw * matter['wm_t_y'] + Dg * matter['gm_t_y']
-    Dzm = Dw * matter['wm_t_z'] + Dg * matter['gm_t_z']
-
-    Dxp = np.roll(Dxm, +1, 0)
-    Dyp = np.roll(Dym, +1, 1)
-    Dzp = np.roll(Dzm, +1, 2)
-
-    return {'xm': Dxm, 'ym': Dym, 'zm': Dzm,
-            'xp': Dxp, 'yp': Dyp, 'zp': Dzp}
-
-def advance(u, D, rho, dx, dy, dz, dt):
-    uxx = (D["xp"] * (np.roll(u,1,axis=0) - u) - D["xm"] * (u - np.roll(u,-1,axis=0))) / dx**2
-    uyy = (D["yp"] * (np.roll(u,1,axis=1) - u) - D["ym"] * (u - np.roll(u,-1,axis=1))) / dy**2
-    uzz = (D["zp"] * (np.roll(u,1,axis=2) - u) - D["zm"] * (u - np.roll(u,-1,axis=2))) / dz**2
-    du = (uxx + uyy + uzz + rho * u * (1 - u)) * dt
-    return u + du
-
-def initial_density(X, Y, Z, x0, y0, z0, mod=np):
-    dsq = (X - x0)**2 + (Y - y0)**2 + (Z - z0)**2
-
-    # following original gliodil code
-    M = 1500.0
-    Dt = 15.0
-
-    u0 = M / (4 * np.pi * Dt)**(3/2) * mod.exp(-dsq / (4 * Dt))
-    u0 = mod.where(u0 > 0.1, mod.where(u0 < 1.0, u0, 1.0), 0.0)
-    return u0
 
 def dice_score(maska, maskb):
     A = np.sum(maska)
