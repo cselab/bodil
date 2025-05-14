@@ -121,6 +121,7 @@ def main():
                               prior_sampler=prior_sampler,
                               beta=0.2,
                               gamma=1.5,
+                              min_zeta_factor=1.6,
                               num_samples=nsamples,
                               comm=comm,
                               seed=seed,

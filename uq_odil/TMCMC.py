@@ -30,6 +30,7 @@ def TMCMC(log_likelihood,
           comm,
           seed,
           min_zeta_progress=1e-4,
+          min_zeta_factor=1.0,
           callback=None,
           checkpoint_dir=None,
           restart_from_dir=None):
@@ -47,6 +48,7 @@ def TMCMC(log_likelihood,
         comm: mpi communicator
         seed: random seed
         min_zeta_progress: minimum increase of zeta between 2 stages
+        min_zeta_factor: zeta will be at least this factor times its previous value.
         callback: if set, a function called by rank 0 at each stage. used to save diagnostics.
         checkpoint_dir: if set, save the state of TMCMC at every stage in this directory.
         restart_from_dir: if set, restart from the latest checkpoint file contained in this directory.
@@ -90,7 +92,7 @@ def TMCMC(log_likelihood,
 
 
     while zeta < 1:
-        if checkpoint_dir:
+        if checkpoint_dir and rank == 0:
             data = {
                 'rng': rng,
                 'zeta': zeta,
@@ -117,7 +119,8 @@ def TMCMC(log_likelihood,
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             res = optimize.fsolve(lambda z: cv(z[0]) - gamma, x0=[zeta])
-        zeta = max([zeta + min_zeta_progress, res[0]])
+
+        zeta = max([zeta + min_zeta_progress, zeta * min_zeta_factor, res[0]])
         zeta = min([1.0, zeta])
 
         # compute plausibility weights and update S
