@@ -90,7 +90,13 @@ def plot(field, path):
     plt.close()
 
 
-parser = argparse.ArgumentParser(description="Train PINN model on ST data.")
+parser = argparse.ArgumentParser(
+    description=("Train a PINN model on ST/PWIP data.\n\n"
+                 "Example usage:\n"
+                 "  python train.cse.py \\\n"
+                 "    -m data/PWIP/patientData/stenosis1.mat \\\n"
+                 "    --i1 10000 --i2 10000 -p 1000 -o out/prediction.mat"),
+    formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--matfile",
                     "-m",
                     required=True,
@@ -114,6 +120,10 @@ parser.add_argument("--output",
                     required=True,
                     type=str,
                     help="Output directory prefix")
+parser.add_argument("-v",
+                    "--verbose",
+                    action="store_true",
+                    help="Enable verbose output during training")
 args = parser.parse_args()
 output_dir = os.path.dirname(args.output)
 if output_dir:
@@ -197,7 +207,7 @@ opt = tf.keras.optimizers.Adam(learning_rate=lr)
 step = tf.function(train_step)
 for epoch in range(args.i1):
     loss, (a, u, p) = step(0.01, 10, True, opt)
-    if epoch % args.period == 0:
+    if args.verbose and epoch % args.period == 0:
         sys.stdout.write("0 %08d %10.4e\n" % (epoch, loss))
 lr = tf.keras.optimizers.schedules.ExponentialDecay(1e-4,
                                                     decay_steps=1000,
@@ -206,7 +216,7 @@ opt = tf.keras.optimizers.Adam(learning_rate=lr)
 step = tf.function(train_step)
 for epoch in range(args.i2):
     loss, (a, u, p) = step(10, 100, False, opt)
-    if epoch % args.period == 0:
+    if args.verbose and epoch % args.period == 0:
         sys.stdout.write("1 %08d %10.4e\n" % (epoch, loss))
 t0, t1 = tf0[0, 0], tf0[0, -1]
 x0, x1 = xf[0, 0], xf[-1, 0]
