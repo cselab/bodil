@@ -17,7 +17,7 @@ def compute_PTV_volume(data_dir, dist_standard_plan):
         dist_standard_plan: distance of the standard plan, in mm
     Return:
         mesh: triangle mesh
-        volume: volume of the mesh, in cm^3
+        volume: volume of the mesh, in mm^3
     """
     meta_data, raw_data, trimmed_data = load_data(data_dir)
 
@@ -30,11 +30,11 @@ def compute_PTV_volume(data_dir, dist_standard_plan):
     vertices, faces, normals, values = skimage.measure.marching_cubes(distances,
                                                                       dist_standard_plan,
                                                                       spacing=(dx, dy, dz))
-    vertices += np.array(meta_data['crop_offset'])[None,:]
+    #vertices += np.array(meta_data['crop_offset'])[None,:]
     vertices = vertices[:,::-1]
 
     mesh = trimesh.Trimesh(faces=faces, vertices=vertices)
-    volume = abs(float(mesh.volume)) * 1e-3 # cm**3
+    volume = abs(float(mesh.volume))
     return mesh, volume
 
 def main():
@@ -49,7 +49,7 @@ def main():
 
     mesh, volume = compute_PTV_volume(path_datadir, dist_standard_plan)
 
-    print(f"Volume: {volume} cm**3")
+    print(f"Volume: {volume*1e-3} cm**3")
     if path_out_mesh:
         mesh.export(path_out_mesh)
 
