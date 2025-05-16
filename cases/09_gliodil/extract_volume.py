@@ -23,7 +23,7 @@ def main():
     out_dir = args.out_dir
     dist_standard_plan = 15 # mm
 
-    _, target_volume = compute_PTV_volume(path_patient_data_dir, dist_standard_plan)
+    _, target_volume, offset = compute_PTV_volume(path_patient_data_dir, dist_standard_plan)
 
     os.makedirs(out_dir, exist_ok=True)
     vtk_paths = glob.glob(os.path.join(path_samples, 'x0_*_y0_*_z0_*', 'seg_final.vtk'))
@@ -34,6 +34,7 @@ def main():
 
         def get_surface(u, level):
             vertices, faces, normals, values = skimage.measure.marching_cubes(u, level, spacing=spacing)
+            vertices += offset[None,:]
             vertices = vertices[:,::-1]
             mesh = trimesh.Trimesh(faces=faces, vertices=vertices)
             return mesh
