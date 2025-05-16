@@ -157,9 +157,9 @@ def run_forward(data_path, Nt, Nx, Ny, Nz, out_dir,
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data_path', type=str, help='path to directory containing .nii files')
-    parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[129, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
+    parser.add_argument('--NtNxNyNz', type=int, nargs=4, default=[257, 64, 64, 64], help='odil grid size (Nt, Nx, Ny, Nz)')
     parser.add_argument('--out-dir', type=str, default='out_forward', help='output directory')
-    parser.add_argument('--xyz0', type=float, nargs=3, default=[55.0, 55.0, 55.0], help='Initial tumor position')
+    parser.add_argument('--xyz0', type=float, nargs=3, default=[55.0, 70.0, 55.0], help='Initial tumor position')
     parser.add_argument('--Dg', type=float, default=0.001, help='diffusion coefficient in grey matter')
     parser.add_argument('--Dw', type=float, default=0.1, help='diffusion coefficient in white matter')
     parser.add_argument('--rho', type=float, default=0.12, help='reaction rate')
