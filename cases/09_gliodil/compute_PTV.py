@@ -10,6 +10,7 @@ import scipy
 import skimage
 import trimesh
 
+from utils import read_vtk
 from prepare_data import SEG_CODE, load_data, get_grid_spacing
 
 def compute_standard_PTV_volume(trimmed_data, meta_data, standard_plan_margin, threshold_matter=0.05):
@@ -74,31 +75,69 @@ def main():
     path_patient_data = args.patient_data
     standard_plan_margin = args.standard_plan_margin
     out_dir = args.out_dir
+    path_samples = args.path_samples
 
     os.makedirs(out_dir, exist_ok=True)
 
     meta_data, raw_data, trimmed_data = load_data(path_patient_data)
+    offset = np.array(meta_data['crop_offset'])
 
     mesh_sPTV, volume_sPTV = compute_standard_PTV_volume(trimmed_data=trimmed_data,
                                                          meta_data=meta_data,
                                                          standard_plan_margin=standard_plan_margin)
 
-    print(f"standard PTV volume: {volume_sPTV*1e-3} cm^3")
-
+    print(f"standard PTV volume: {volume_sPTV * 1e-3} cm^3")
     mesh_sPTV.export(os.path.join(out_dir, 'standard_PTV.ply'))
+
+
+    mesh_gliodil = []
+
+    if path_samples:
+        vtk_paths = glob.glob(os.path.join(path_samples, 'x0_*_y0_*_z0_*', 'seg_final.vtk'))
+
+        for i, path in enumerate(vtk_paths):
+            u, spacing, origin, varname = read_vtk(path)
+            dx, dy, dz = spacing
+
+            def get_surface(u, level):
+                vertices, faces, normals, values = skimage.measure.marching_cubes(u, level, spacing=spacing)
+                vertices += offset[None,:]
+                vertices = vertices[:,::-1]
+                mesh = trimesh.Trimesh(faces=faces, vertices=vertices)
+                return mesh
+
+            def f(level):
+                mesh = get_surface(u, level)
+                volume = abs(float(mesh.volume))
+                return volume - volume_sPTV
+
+            ulo, uhi = np.min(u) + 1e-2,  np.max(u) - 1e-2
+            level = scipy.optimize.bisect(f, ulo, uhi, xtol=1e-4)
+
+            mesh = get_surface(u, level)
+            out_path = os.path.join(out_dir, f'sample-{i:06d}.ply')
+            mesh.export(out_path)
+            mesh_gliodil.append(mesh)
+
 
     plane_origin = np.array(mesh_sPTV.center_mass)[::-1]
     plane_normal = np.array([0.0, 0.0, 1.0])
 
-    lines = trimesh.intersections.mesh_plane(mesh_sPTV, plane_normal[::-1], plane_origin[::-1])
-
     slice_wm = get_slice(meta_data=meta_data, field=raw_data['wm'], plane_origin=plane_origin, plane_normal=plane_normal)
     slice_gm = get_slice(meta_data=meta_data, field=raw_data['gm'], plane_origin=plane_origin, plane_normal=plane_normal)
 
+    lines_sPTV = trimesh.intersections.mesh_plane(mesh_sPTV, plane_normal[::-1], plane_origin[::-1])
+
     fig, ax = plt.subplots()
     ax.imshow(slice_gm, origin='lower', cmap='grey')
-    lc = matplotlib.collections.LineCollection(lines[:,:,1:], colors='r', linewidths=2)
+    lc = matplotlib.collections.LineCollection(lines_sPTV[:,:,1:], colors='r', linewidths=2)
     ax.add_collection(lc)
+
+    for mesh in mesh_gliodil:
+        lines = trimesh.intersections.mesh_plane(mesh, plane_normal[::-1], plane_origin[::-1])
+        lc = matplotlib.collections.LineCollection(lines[:,:,1:], colors='b', linewidths=0.2)
+        ax.add_collection(lc)
+
     plt.show()
 
 if __name__ == '__main__':
