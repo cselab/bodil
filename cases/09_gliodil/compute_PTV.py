@@ -6,6 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pickle
 import scipy
 import skimage
 import trimesh
@@ -70,12 +71,14 @@ def main():
     parser.add_argument('--standard-plan-margin', type=float, default=15, help='standard plan margin, in mm')
     parser.add_argument('--out-dir', type=str, default="out_PTV", help='output directory')
     parser.add_argument('--path-samples', type=str, default=None, help='path to directory that contains samples')
+    parser.add_argument('--show-plots', action='store_true', default=False)
     args = parser.parse_args()
 
     path_patient_data = args.patient_data
     standard_plan_margin = args.standard_plan_margin
     out_dir = args.out_dir
     path_samples = args.path_samples
+    show_plots = args.show_plots
 
     os.makedirs(out_dir, exist_ok=True)
 
@@ -119,26 +122,51 @@ def main():
             mesh.export(out_path)
             mesh_gliodil.append(mesh)
 
+    out_data = []
+    for d in range(3):
+        plane_origin = np.array(mesh_sPTV.center_mass)[::-1]
+        plane_normal = np.array([0.0, 0.0, 0.0])
+        plane_normal[d] = 1.0
 
-    plane_origin = np.array(mesh_sPTV.center_mass)[::-1]
-    plane_normal = np.array([0.0, 0.0, 1.0])
+        slice_wm = get_slice(meta_data=meta_data, field=raw_data['wm'], plane_origin=plane_origin, plane_normal=plane_normal)
+        slice_gm = get_slice(meta_data=meta_data, field=raw_data['gm'], plane_origin=plane_origin, plane_normal=plane_normal)
 
-    slice_wm = get_slice(meta_data=meta_data, field=raw_data['wm'], plane_origin=plane_origin, plane_normal=plane_normal)
-    slice_gm = get_slice(meta_data=meta_data, field=raw_data['gm'], plane_origin=plane_origin, plane_normal=plane_normal)
+        lines_sPTV = trimesh.intersections.mesh_plane(mesh_sPTV, plane_normal[::-1], plane_origin[::-1])
 
-    lines_sPTV = trimesh.intersections.mesh_plane(mesh_sPTV, plane_normal[::-1], plane_origin[::-1])
+        # indices of line coordinates
+        s = []
+        for i in range(3):
+            if i != 2-d:
+                s.append(i)
 
-    fig, ax = plt.subplots()
-    ax.imshow(slice_gm, origin='lower', cmap='grey')
-    lc = matplotlib.collections.LineCollection(lines_sPTV[:,:,1:], colors='r', linewidths=2)
-    ax.add_collection(lc)
+        dir_data = {
+            'offset': offset, # if one needs to plot samples
+            'wm': slice_wm,
+            'gm': slice_gm,
+            'sPTV': lines_sPTV[:,:,s],
+            'gPTV': []
+        }
 
-    for mesh in mesh_gliodil:
-        lines = trimesh.intersections.mesh_plane(mesh, plane_normal[::-1], plane_origin[::-1])
-        lc = matplotlib.collections.LineCollection(lines[:,:,1:], colors='b', linewidths=0.2)
-        ax.add_collection(lc)
+        if show_plots:
+            fig, ax = plt.subplots()
+            ax.imshow(slice_gm, origin='lower', cmap='grey_r', interpolation='bicubic')
+            lc = matplotlib.collections.LineCollection(lines_sPTV[:,:,s], colors='r', linewidths=2)
+            ax.add_collection(lc)
 
-    plt.show()
+        for mesh in mesh_gliodil:
+            lines = trimesh.intersections.mesh_plane(mesh, plane_normal[::-1], plane_origin[::-1])
+            if show_plots:
+                lc = matplotlib.collections.LineCollection(lines[:,:,s], colors='b', linewidths=0.1)
+                ax.add_collection(lc)
+            dir_data['gPTV'].append(lines[:,:,s])
+
+        if show_plots:
+            plt.show()
+            plt.close()
+        out_data.append(dir_data.copy())
+
+    with open(os.path.join(out_dir, 'contours.pickle'), 'wb') as f:
+        pickle.dump(out_data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 if __name__ == '__main__':
     main()
