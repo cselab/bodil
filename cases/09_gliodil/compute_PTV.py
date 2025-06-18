@@ -41,19 +41,21 @@ def compute_standard_PTV_volume(trimmed_data, meta_data, standard_plan_margin, t
                                                                       spacing=(dx, dy, dz))
     offset = np.array(meta_data['crop_offset'])
     vertices += offset[None,:]
-    vertices = vertices[:,::-1]
+    #vertices = vertices[:,::-1]
 
     mesh = trimesh.Trimesh(faces=faces, vertices=vertices)
     volume = abs(float(mesh.volume))
     return mesh, volume
 
 def get_slice(meta_data, field, plane_origin, plane_normal):
+    plane_normal = plane_normal
+    plane_origin = plane_origin
     d = np.argmax(plane_normal)
     if np.linalg.norm(plane_normal) != abs(plane_normal[d]):
         raise ValueError(f"Expected a normal aligned with x, y or z axis")
 
     dx, dy, dz = get_grid_spacing(meta_data['nifti_header'])
-    spacing = np.array([dx, dy, dz])
+    spacing = np.array([dz, dy, dx])
     r = plane_origin
     im = (r / spacing).astype(int)
     ip = im + 1
@@ -62,7 +64,7 @@ def get_slice(meta_data, field, plane_origin, plane_normal):
     sm = tuple(im[j] if j == d else slice(None) for j in range(3))
     sp = tuple(ip[j] if j == d else slice(None) for j in range(3))
 
-    return (1.0 - l) * field[sm] + l * field[sp]
+    return ((1.0 - l) * field[sm] + l * field[sp]).T
 
 
 def main():
@@ -105,7 +107,7 @@ def main():
             def get_surface(u, level):
                 vertices, faces, normals, values = skimage.measure.marching_cubes(u, level, spacing=spacing)
                 vertices += offset[None,:]
-                vertices = vertices[:,::-1]
+                #vertices = vertices[:,::-1]
                 mesh = trimesh.Trimesh(faces=faces, vertices=vertices)
                 return mesh
 
@@ -124,19 +126,19 @@ def main():
 
     out_data = []
     for d in range(3):
-        plane_origin = np.array(mesh_sPTV.center_mass)[::-1]
+        plane_origin = np.array(mesh_sPTV.center_mass)
         plane_normal = np.array([0.0, 0.0, 0.0])
         plane_normal[d] = 1.0
 
         slice_wm = get_slice(meta_data=meta_data, field=raw_data['wm'], plane_origin=plane_origin, plane_normal=plane_normal)
         slice_gm = get_slice(meta_data=meta_data, field=raw_data['gm'], plane_origin=plane_origin, plane_normal=plane_normal)
 
-        lines_sPTV = trimesh.intersections.mesh_plane(mesh_sPTV, plane_normal[::-1], plane_origin[::-1])
+        lines_sPTV = trimesh.intersections.mesh_plane(mesh_sPTV, plane_normal, plane_origin)
 
         # indices of line coordinates
         s = []
         for i in range(3):
-            if i != 2-d:
+            if i != d:
                 s.append(i)
 
         dir_data = {
@@ -154,7 +156,7 @@ def main():
             ax.add_collection(lc)
 
         for mesh in mesh_gliodil:
-            lines = trimesh.intersections.mesh_plane(mesh, plane_normal[::-1], plane_origin[::-1])
+            lines = trimesh.intersections.mesh_plane(mesh, plane_normal, plane_origin)
             if show_plots:
                 lc = matplotlib.collections.LineCollection(lines[:,:,s], colors='b', linewidths=0.1)
                 ax.add_collection(lc)
