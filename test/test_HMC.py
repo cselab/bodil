@@ -16,7 +16,7 @@ def main():
     x = torch.zeros(dim, requires_grad=True)
     sigma = torch.FloatTensor([sig] * dim)
 
-    hmc = HMC([x], dt=0.08 * sig, L=10, M=0.5 * sig)
+    hmc = HMC([x], dt=2.55 * sig, L=10, M=0.5 * sig**2)
 
     def closure():
         hmc.zero_grad()

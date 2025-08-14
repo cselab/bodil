@@ -87,8 +87,11 @@ def main():
 
         losses.append(l)
 
-
-    hmc = HMC([y], dt=0.0077, L=10, M=1)
+    H = torch.autograd.functional.hessian(neg_log_posterior, y, create_graph=True).detach().numpy()
+    cov = np.linalg.inv(H)
+    var = np.diag(cov) * 100
+    M = torch.from_numpy(var)
+    hmc = HMC([y], dt=0.004, L=100, M=M)
 
     def closure():
         hmc.zero_grad()

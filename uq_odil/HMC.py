@@ -85,7 +85,7 @@ class HMC(Optimizer):
         n = self._numel()
         M = self._M
         return torch.normal(mean=torch.zeros(n, device=dev),
-                            std=M,
+                            std=torch.sqrt(M),
                             generator=self._generator)
 
 
@@ -120,10 +120,10 @@ class HMC(Optimizer):
                 p -= dt/2 * gradU
 
         H = U + torch.sum(p**2 / ( 2 * M))
-        u = torch.rand(size=(1,), generator=self._generator)[0].item()
-        alpha = min([torch.exp(H - H0).item(), 1.0])
+        log_alpha = (H0 - H).clamp(max=0.0)
+        log_u = torch.rand(size=(1,), generator=self._generator)[0].log()
 
-        if u <= alpha:
+        if (log_u < log_alpha).item():
             # accept
             H_ = H.item()
             U_ = U.item()
