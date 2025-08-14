@@ -13,15 +13,15 @@ def main():
     args = parser.parse_args()
 
     df = pd.read_csv(args.hmc)
-    omegas = df['omega'].to_numpy()
+    omegas = df['omegasq'].to_numpy()
 
     df = pd.read_csv(args.lap)
-    mul = df['omega_mean'][0]
-    stdl = df['omega_std'][0]
+    mul = df['omegasq_mean'][0]
+    stdl = df['omegasq_std'][0]
 
     df = pd.read_csv(args.profile)
-    om_pro = df['omega'].to_numpy()
-    pom_pro = df['pomega'].to_numpy()
+    om_pro = df['omegasq'].to_numpy()
+    pom_pro = df['pomegasq'].to_numpy()
 
     om = np.linspace(mul - 5 * stdl, mul + 5 * stdl, 1000)
     pom = np.exp(-(om - mul)**2 / (2 * stdl**2)) / np.sqrt(2 * np.pi * stdl**2)
@@ -30,8 +30,8 @@ def main():
     ax.hist(omegas, bins=50, density=True, label='HMC', color='C0')
     ax.plot(om, pom, '-', label='Laplace', color='C1')
     ax.plot(om_pro, pom_pro, '--', label='Profile likelihood', color='C2')
-    ax.set_xlabel(r"$\omega$")
-    ax.set_ylabel(r"$P(\omega | D)$")
+    ax.set_xlabel(r"$\omega^2$")
+    ax.set_ylabel(r"$P(\omega^2 | D)$")
     ax.set_xlim(0.7, 1.3)
     ax.set_ylim(0, None)
     ax.legend()

@@ -28,7 +28,7 @@ def main():
     T = 20.0
     k = 1.0
     m = 1.0
-    omega = np.sqrt(k / m)
+    omega_ref = np.sqrt(k / m)
     x0 = 0.5
     v0 = 0.2
 
@@ -41,13 +41,13 @@ def main():
     beta = 1e4
     rng = np.random.default_rng(seed=seed)
 
-    td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
+    td, xd = generate_data(num_data, T, omega=omega_ref, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
 
     nt = 63
     t = np.linspace(0, T, nt + 1, endpoint=True)
 
-    xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
-    vexact = v0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
+    xexact = v0/omega_ref * np.sin(omega_ref * t) + x0 * np.cos(omega_ref * t)
+    vexact = v0 * np.cos(omega_ref * t) - x0 * omega_ref * np.sin(omega_ref * t)
 
     dt = t[1] - t[0]
 
@@ -60,7 +60,7 @@ def main():
     optim = Adam([y], lr=lr)
 
     def neg_log_posterior(y):
-        omega = y[0]
+        omegasq = y[0]
         x = y[1:nt+2]
         v = y[nt+2:]
         dxdt = torch.diff(x) / dt
@@ -69,7 +69,7 @@ def main():
         vm = (v[:-1] + v[1:]) / 2
 
         ode1_res = dxdt - vm
-        ode2_res = dvdt + omega * xm
+        ode2_res = dvdt + omegasq * xm
         data_res = x[td_ids] - xd
 
         loss_PDE = torch.mean(ode1_res**2 + ode2_res**2)
@@ -93,7 +93,7 @@ def main():
     H = torch.autograd.functional.hessian(neg_log_posterior, y, create_graph=True)
 
     y = y.detach().numpy()
-    omega = y[0]
+    omegasq = y[0]
     x = y[1:nt+2]
     v = y[nt+2:]
 
@@ -121,9 +121,9 @@ def main():
         z = rng.normal(0, 1/np.sqrt(eigvals), 1 + len(x) + len(v))
         samples[:,k] = y + eigvecs @ z
 
-    omegamean = np.mean(samples[0])
-    omegalo = np.quantile(samples[0], q=0.05)
-    omegahi = np.quantile(samples[0], q=0.95)
+    omegasq_mean = np.mean(samples[0])
+    omegasq_lo = np.quantile(samples[0], q=0.05)
+    omegasq_hi = np.quantile(samples[0], q=0.95)
 
     xmean = np.mean(samples[1:1+len(x)], axis=1)
     xlo = np.quantile(samples[1:1+len(x)], q=0.05, axis=1)
@@ -183,15 +183,12 @@ def main():
     df.to_csv('laplace_data.csv', index=False)
 
     data = {
-        'omega_mean': [omega.item()],
-        'omega_std': [np.sqrt(cov[0,0])]
+        'omegasq_mean': [omegasq.item()],
+        'omegasq_std': [np.sqrt(cov[0,0])]
     }
 
     df = pd.DataFrame(data)
     df.to_csv('laplace_omega.csv', index=False)
-
-
-
 
 if __name__ == '__main__':
     main()

@@ -7,3 +7,4 @@ hmc_cov.npy
 hmc_pred.csv
 hmc_omega.csv
 profile_omega.csv
+exact_omega.csv

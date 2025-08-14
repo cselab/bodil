@@ -22,7 +22,7 @@ def generate_data(num_data, T, omega, x0, v0, rng, sigma):
     return t, x
 
 
-def solve_ODIL(omegasq,
+def solve_ODIL(omega_sq,
                beta, sigma_data,
                td_ids, xd, dt, nt,
                num_epochs=10000,
@@ -40,7 +40,7 @@ def solve_ODIL(omegasq,
         vm = (v[:-1] + v[1:]) / 2
 
         ode1_res = dxdt - vm
-        ode2_res = dvdt + omegasq * xm
+        ode2_res = dvdt + omega_sq * xm
         data_res = x[td_ids] - xd
 
         loss_PDE = torch.mean(ode1_res**2 + ode2_res**2)
@@ -61,8 +61,11 @@ def solve_ODIL(omegasq,
         if epoch > num_epochs * 0.9:
             losses.append(l)
 
+    H = torch.autograd.functional.hessian(ODIL_loss, y, create_graph=True)
+    H = H.detach().numpy()
+    y = y.detach().numpy()
     mean_loss = np.mean(losses)
-    return mean_loss, y.detach().numpy()
+    return mean_loss, y, H
 
 
 def main():
@@ -86,32 +89,42 @@ def main():
     td_ids = torch.from_numpy((td / dt).astype(int))
     xd = torch.from_numpy(xd)
 
-    omegasqs = np.linspace(0.7, 1.3, 50)
+     # constant factor for numerical stability of det computation;
+     # inprinciple one should then multiply the determinant by Hfactor**len(H), but
+     # this does not matter in final result since it is the same for everybody and
+     # we rescale the prob in the end.
+    Hfactor = 3200
+
+    omegas = np.linspace(0.7, 1.3, 50)
     losses = []
-    for omegasq in omegasqs:
-        loss, y = solve_ODIL(omegasq, beta=beta, sigma_data=sigma_data,
-                             dt=dt, nt=nt, xd=xd, td_ids=td_ids)
-        print(f"omegasq {omegasq:.2e}, loss {loss:.4e}")
+    detHs = []
+    for omega in omegas:
+        loss, y, H = solve_ODIL(omega, beta=beta, sigma_data=sigma_data,
+                                dt=dt, nt=nt, xd=xd, td_ids=td_ids)
+        detH = np.linalg.det(H / Hfactor)
+        print(f"omega {omega:.2e}, loss {loss:.4e}, det(H) {detH:.4e}")
         losses.append(loss)
+        detHs.append(detH)
 
     losses = np.array(losses)
-    pomegasq = np.exp(-losses)
+    detHs = np.array(detHs)
+    pomega = np.exp(-losses) / np.sqrt(detHs)
 
-    norm = np.sum((pomegasq[1:] + pomegasq[:-1]) / 2 * np.diff(omegasqs))
-    pomegasq /= norm
+    norm = np.sum((pomega[1:] + pomega[:-1]) / 2 * np.diff(omegas))
+    pomega /= norm
 
     data = {
-        'omegasq': omegasqs,
-        'pomegasq': pomegasq
+        'omega': omegas,
+        'pomega': pomega
     }
     df = pd.DataFrame(data)
-    df.to_csv('profile_omega.csv', index=False)
+    df.to_csv('exact_omega.csv', index=False)
 
     fig, ax = plt.subplots()
-    ax.plot(omegasqs, pomegasq)
+    ax.plot(omegas, pomega)
     ax.set_ylim(0, None)
     ax.set_xlim(0.7, 1.3)
-    ax.set_xlabel(r"$\omega^2$")
+    ax.set_xlabel(r"$\omega$")
     plt.show()
 
 

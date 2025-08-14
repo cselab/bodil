@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 import torch
 from torch.optim import Adam
 
@@ -30,20 +31,20 @@ def main():
     T = 20.0
     k = 1.0
     m = 1.0
-    omega = np.sqrt(k / m)
+    omega_ref = np.sqrt(k / m)
     x0 = 0.5
     v0 = 0.2
 
     seed = 2349873
     num_epochs = 10000
-    num_samples = 50000
+    num_samples = 100000
     lr = 5e-4
     num_data = 20
     sigma_data = 0.1
     beta = 1e4
     rng = np.random.default_rng(seed=seed)
 
-    td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
+    td, xd = generate_data(num_data, T, omega=omega_ref, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
 
     nt = 63
     t = np.linspace(0, T, nt + 1, endpoint=True)
@@ -56,7 +57,7 @@ def main():
     optim = Adam([y], lr=lr)
 
     def neg_log_posterior(y):
-        omega = y[0]
+        omega_sq = y[0]
         x = y[1:nt+2]
         v = y[nt+2:]
         dxdt = torch.diff(x) / dt
@@ -65,7 +66,7 @@ def main():
         vm = (v[:-1] + v[1:]) / 2
 
         ode1_res = dxdt - vm
-        ode2_res = dvdt + omega * xm
+        ode2_res = dvdt + omega_sq * xm
         data_res = x[td_ids] - xd
 
         loss_PDE = torch.mean(ode1_res**2 + ode2_res**2)
@@ -99,7 +100,7 @@ def main():
     num_accepted = 0
     Umap = None
     ymap = None
-    for k in range(num_samples):
+    for k in tqdm(range(num_samples)):
         y_, H_, U_, accepted = hmc.step(closure)
         samples.append(y_[0].detach().numpy())
         num_accepted += accepted
@@ -110,7 +111,7 @@ def main():
     print(f"accptance rate: {num_accepted/num_samples}")
     samples = np.array(samples)
 
-    omega_samples = samples[:,0]
+    omegasq_samples = samples[:,0]
 
     x_samples = samples[:,1:nt+2]
     x_map = ymap[1:nt+2]
@@ -124,8 +125,8 @@ def main():
     v_lo = np.quantile(v_samples, q=0.05, axis=0)
     v_hi = np.quantile(v_samples, q=0.95, axis=0)
 
-    xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
-    vexact = v0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
+    xexact = v0/omega_ref * np.sin(omega_ref * t) + x0 * np.cos(omega_ref * t)
+    vexact = v0 * np.cos(omega_ref * t) - x0 * omega_ref * np.sin(omega_ref * t)
 
     if 1:
         fig, ax = plt.subplots()
@@ -182,9 +183,9 @@ def main():
     df.to_csv('hmc_data.csv', index=False)
 
     data = {
-        'omega': omega_samples
+        'omegasq': omegasq_samples
     }
-    print(f"omega: mean {np.mean(omega_samples)}, std {np.std(omega_samples)}")
+    print(f"omegasq: mean {np.mean(omegasq_samples)}, std {np.std(omegasq_samples)}")
     df = pd.DataFrame(data)
     df.to_csv('hmc_omega.csv', index=False)
 
