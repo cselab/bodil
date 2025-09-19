@@ -8,100 +8,73 @@ import triangle as tr
 def f(x, y):
     return x**3 + x**2 + 2 * y**2 + x * y + y**3
 
-def grad_f_exact(x, y):
-    return 3 * x**2 + 2 * x + y, 4 * y + x + 3 * y**2
-
 def lapl_exact(x, y):
     return 6 * (1 + x + y)
 
-def cotan_stiffness(vertices, triangles):
+def triangle_areas(vertices, triangles):
+    v0 = vertices[triangles[:,1]] - vertices[triangles[:,0]]
+    v1 = vertices[triangles[:,2]] - vertices[triangles[:,0]]
+    A = 0.5 * (v0[:,0]*v1[:,1] - v0[:,1]*v1[:,0])
+    return A
+
+def per_triangle_grad_scalar(vertices, triangles, f):
+    """
+    Returns G: (m,2) per-triangle gradients of scalar field f at vertices.
+    """
+    x = vertices[:,0]; y = vertices[:,1]
+    i, j, k = triangles[:,0], triangles[:,1], triangles[:,2]
+    A = triangle_areas(vertices, triangles)
+    denom = 2.0 * A
+
+    dphix_i =  (y[j] - y[k]) / denom
+    dphiy_i =  (x[k] - x[j]) / denom
+    dphix_j =  (y[k] - y[i]) / denom
+    dphiy_j =  (x[i] - x[k]) / denom
+    dphix_k =  (y[i] - y[j]) / denom
+    dphiy_k =  (x[j] - x[i]) / denom
+
+    Gx = f[i]*dphix_i + f[j]*dphix_j + f[k]*dphix_k
+    Gy = f[i]*dphiy_i + f[j]*dphiy_j + f[k]*dphiy_k
+    return Gx, Gy
+
+def per_vertex_grad_scalar(vertices, triangles, f):
+    Gtx, Gty = per_triangle_grad_scalar(vertices, triangles, f)
+    A = np.abs(triangle_areas(vertices, triangles))
     n = vertices.shape[0]
-    S = np.zeros((n, n))
-
-    def cot_at(a, b, c):
-        u = vertices[b] - vertices[a]
-        v = vertices[c] - vertices[a]
-        dot = np.dot(u, v)
-        cross = u[0]*v[1] - u[1]*v[0]
-        return dot / max(1e-16, abs(cross))
-
-    for (i, j, k) in triangles:
-        wi = 0.5 * cot_at(i, j, k)  # opposite edge (j,k)
-        wj = 0.5 * cot_at(j, k, i)  # opposite edge (k,i)
-        wk = 0.5 * cot_at(k, i, j)  # opposite edge (i,j)
-
-        # edge (j,k), weight wi
-        S[j, j] += wi; S[k, k] += wi
-        S[j, k] -= wi; S[k, j] -= wi
-        # edge (k,i), weight wj
-        S[k, k] += wj; S[i, i] += wj
-        S[k, i] -= wj; S[i, k] -= wj
-        # edge (i,j), weight wk
-        S[i, i] += wk; S[j, j] += wk
-        S[i, j] -= wk; S[j, i] -= wk
-    return S
+    Gx = np.zeros(n)
+    Gy = np.zeros(n)
+    W  = np.zeros(n)
+    for t, (a, b, c) in enumerate(triangles):
+        w = A[t]
+        gradx = Gtx[t]
+        grady = Gty[t]
+        for v in (a, b, c):
+            Gx[v] += w * gradx
+            Gy[v] += w * grady
+            W[v]  += w
+    W = np.maximum(W, 1e-16)
+    Gx /= W
+    Gy /= W
+    return Gx, Gy
 
 def vertex_areas(vertices, triangles):
-    p = vertices; tri = triangles
+    p = vertices
+    tri = triangles
     a = p[tri[:,1]] - p[tri[:,0]]
     b = p[tri[:,2]] - p[tri[:,0]]
     Atri = 0.5 * np.abs(a[:,0]*b[:,1] - a[:,1]*b[:,0])
-    n = len(vertices)
-    A = np.zeros(n)
+    nverts = len(vertices)
+    A = np.zeros(nverts)
     np.add.at(A, tri[:,0], Atri/3)
     np.add.at(A, tri[:,1], Atri/3)
     np.add.at(A, tri[:,2], Atri/3)
     return A
 
-def boundary_edges(vertices, triangles):
-    # return list of (i,j,t) where edge (i->j) is a boundary edge of triangle t,
-    # oriented as it appears in triangle t (needed to pick outward normal)
-    F = triangles
-    edges = {}
-    for t, (i,j,k) in enumerate(F):
-        for a,b in [(i,j),(j,k),(k,i)]:
-            key = (min(a,b), max(a,b))
-            if key in edges: edges[key].append((t,a,b))
-            else:            edges[key] = [(t,a,b)]
-    bnd = []
-    for key, lst in edges.items():
-        if len(lst) == 1:
-            t,a,b = lst[0]     # oriented as in triangle t
-            bnd.append((a,b,t))
-    return bnd
-
-def boundary_flux_load(vertices, triangles, grad_f_exact):
-    """
-    Assemble b_i = ∮ φ_i * (∂f/∂n) ds over boundary using midpoint rule on each boundary edge.
-    """
-    b = np.zeros(len(vertices))
-    for (a,bv,t) in boundary_edges(vertices, triangles):
-        i, j = a, bv
-        vi, vj = vertices[i], vertices[j]
-        e = vj - vi
-        L = np.linalg.norm(e)
-        if L < 1e-15: continue
-        # outward unit normal relative to triangle orientation:
-        # for CCW triangle, interior is on the LEFT of edge (i->j),
-        # so outward normal is the RIGHT normal = rotate by -90°
-        n_out = np.array([ e[1], -e[0] ]) / L
-
-        mid = 0.5*(vi + vj)
-        dfdx, dfdy = grad_f_exact(mid[0], mid[1])
-        q = dfdx*n_out[0] + dfdy*n_out[1]           # ∂f/∂n at midpoint
-        contrib = 0.5 * L * q                       # midpoint rule, split to i and j
-        b[i] += contrib
-        b[j] += contrib
-    return b
-
-def laplacian_f(vertices, triangles, fvals, grad_f_exact):
-    """
-    Δ f ≈ - M^{-1} S f + M^{-1} b, with b from boundary flux ∮ φ ∂f/∂n.
-    """
-    S = cotan_stiffness(vertices, triangles)
-    Mdiag = vertex_areas(vertices, triangles)
-    b = boundary_flux_load(vertices, triangles, grad_f_exact)
-    return ( -S @ fvals + b ) / np.maximum(Mdiag, 1e-16)
+def laplacian_f(vertices, triangles, fvals):
+    Gx, Gy = per_vertex_grad_scalar(vertices, triangles, fvals)
+    Gxx, Gxy = per_vertex_grad_scalar(vertices, triangles, Gx)
+    Gyx, Gyy = per_vertex_grad_scalar(vertices, triangles, Gy)
+    return Gxx + Gyy
 
 
 def ring_segments(offset, n):
@@ -132,7 +105,7 @@ def test():
     y = vertices[:,1]
 
     lapl_f_exact = lapl_exact(x, y)
-    lapl_f = laplacian_f(vertices, triangles, f(x, y), grad_f_exact)
+    lapl_f = laplacian_f(vertices, triangles, f(x, y))
 
     fig, ax = plt.subplots()
     ax.plot(lapl_f_exact, lapl_f, 'ok')
@@ -166,8 +139,49 @@ def test():
     plt.tight_layout()
     plt.show()
 
+
+def convergence():
+    L = 2
+
+    poly = {
+        'vertices': np.array([[-L/2, -L/2],
+                              [-L/2, +L/2],
+                              [+L/2, +L/2],
+                              [+L/2, -L/2],
+                              ]),
+        'segments': ring_segments(0, 4)
+    }
+
+    def err(h):
+        area = h**2 / 2
+        mesh = tr.triangulate(poly, f"pq30a{area:.10f}")
+        vertices = mesh["vertices"]
+        triangles = mesh["triangles"]
+        x = vertices[:,0]
+        y = vertices[:,1]
+
+        lapl_f_exact = lapl_exact(x, y)
+        lapl_f = laplacian_f(vertices, triangles, f(x, y))
+        A = vertex_areas(vertices, triangles)
+        err2 = A * (lapl_f - lapl_f_exact)**2
+
+        return np.sqrt(np.sum(err2) / np.sum(A))
+
+    h = 1 / 2**np.arange(1, 7)
+    errors = [err(h) for h in h]
+
+    fig, ax = plt.subplots()
+    ax.plot(1/h, errors, '-o')
+    ax.plot(1/h, h**0.5, '--k')
+    ax.set_xlabel(r"$1/h$")
+    ax.set_ylabel("error")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    plt.show()
+
 def main():
     test()
+    convergence()
 
 if __name__ == '__main__':
     main()
