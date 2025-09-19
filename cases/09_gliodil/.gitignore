@@ -8,3 +8,4 @@ data_GliODIL_essential
 *.png
 *.vtk
 slurm*.out
+out_PTV*
