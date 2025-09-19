@@ -95,33 +95,33 @@ def main():
      # we rescale the prob in the end.
     Hfactor = 3200
 
-    omegas = np.linspace(0.7, 1.3, 50)
+    omegasqs = np.linspace(0.7, 1.3, 50)
     losses = []
     detHs = []
-    for omega in omegas:
-        loss, y, H = solve_ODIL(omega, beta=beta, sigma_data=sigma_data,
+    for omegasq in omegasqs:
+        loss, y, H = solve_ODIL(omegasq, beta=beta, sigma_data=sigma_data,
                                 dt=dt, nt=nt, xd=xd, td_ids=td_ids)
         detH = np.linalg.det(H / Hfactor)
-        print(f"omega {omega:.2e}, loss {loss:.4e}, det(H) {detH:.4e}")
+        print(f"omegasq {omegasq:.2e}, loss {loss:.4e}, det(H) {detH:.4e}")
         losses.append(loss)
         detHs.append(detH)
 
     losses = np.array(losses)
     detHs = np.array(detHs)
-    pomega = np.exp(-losses) / np.sqrt(detHs)
+    pomegasq = np.exp(-losses) / np.sqrt(detHs)
 
-    norm = np.sum((pomega[1:] + pomega[:-1]) / 2 * np.diff(omegas))
-    pomega /= norm
+    norm = np.sum((pomegasq[1:] + pomegasq[:-1]) / 2 * np.diff(omegasqs))
+    pomegasq /= norm
 
     data = {
-        'omega': omegas,
-        'pomega': pomega
+        'omegasq': omegasqs,
+        'pomegasq': pomegasq
     }
     df = pd.DataFrame(data)
     df.to_csv('exact_omega.csv', index=False)
 
     fig, ax = plt.subplots()
-    ax.plot(omegas, pomega)
+    ax.plot(omegasqs, pomegasq)
     ax.set_ylim(0, None)
     ax.set_xlim(0.7, 1.3)
     ax.set_xlabel(r"$\omega$")
