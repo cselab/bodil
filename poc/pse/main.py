@@ -50,14 +50,27 @@ def eta_first_derivative_ls(x, y, axis, order=2):
     return coeff / np.pi * xd * np.exp(-rsq)
 
 
-def grad_pse(x, y, f, eps, order=2):
+def vertex_areas(vertices, triangles):
+    p = vertices
+    tri = triangles
+    a = p[tri[:,1]] - p[tri[:,0]]
+    b = p[tri[:,2]] - p[tri[:,0]]
+    Atri = 0.5 * np.abs(a[:,0]*b[:,1] - a[:,1]*b[:,0])
+    nverts = len(vertices)
+    A = np.zeros(nverts)
+    np.add.at(A, tri[:,0], Atri/3)
+    np.add.at(A, tri[:,1], Atri/3)
+    np.add.at(A, tri[:,2], Atri/3)
+    return A
+
+def grad_pse(x, y, f, areas, eps, order=2):
     dx = np.subtract.outer(x, x)
     dy = np.subtract.outer(y, y)
     fvals = f(x, y)
     df = np.subtract.outer(fvals, fvals)
 
-    dfdx = -np.sum(df * eta_first_derivative_fs(dx / eps, dy / eps, axis=0, order=order), axis=0)
-    dfdy = -np.sum(df * eta_first_derivative_fs(dx / eps, dy / eps, axis=1, order=order), axis=0)
+    dfdx = -np.sum(areas * df * eta_first_derivative_fs(dx / eps**0.5, dy / eps**0.5, axis=0, order=order), axis=0) / eps**1.5
+    dfdy = -np.sum(areas * df * eta_first_derivative_fs(dx / eps**0.5, dy / eps**0.5, axis=1, order=order), axis=0) / eps**1.5
 
     return dfdx, dfdy
 
@@ -91,10 +104,13 @@ def main():
 
     n = len(x)
     rho = n / L**2
-    eps = 2 / np.sqrt(rho)
+    eps = 2 / rho
+    print(f"eps = {eps}")
 
     dfdx_exact, dfdy_exact = grad_f_exact(x, y)
-    dfdx_pse, dfdy_pse = grad_pse(x, y, f, eps, order=2)
+
+    areas = vertex_areas(vertices, triangles)
+    dfdx_pse, dfdy_pse = grad_pse(x, y, f, areas, eps, order=2)
 
     fig, ax = plt.subplots()
     ax.plot(dfdx_exact, dfdx_pse, 'ok')
