@@ -61,7 +61,7 @@ def ring_segments(offset, n):
     idx = np.arange(offset, offset + n)
     return np.column_stack([idx, np.roll(idx, -1)])
 
-def main():
+def test():
     L = 2
 
     poly = {
@@ -119,6 +119,48 @@ def main():
 
     plt.tight_layout()
     plt.show()
+
+def convergence():
+    L = 2
+
+    poly = {
+        'vertices': np.array([[-L/2, -L/2],
+                              [-L/2, +L/2],
+                              [+L/2, +L/2],
+                              [+L/2, -L/2],
+                              ]),
+        'segments': ring_segments(0, 4)
+    }
+
+    def err(h):
+        area = h**2 / 2
+        mesh = tr.triangulate(poly, f"q30a{area}")
+        vertices = mesh["vertices"]
+        triangles = mesh["triangles"]
+        x = vertices[:,0]
+        y = vertices[:,1]
+
+        dfdx_exact, dfdy_exact = grad_f_exact(x, y)
+        dfdx, dfdy = per_vertex_grad_scalar(vertices, triangles, f(x, y))
+
+        return np.sqrt(np.mean((dfdx - dfdx_exact)**2 + (dfdy - dfdy_exact)**2))
+
+    h = 1 / 2**np.arange(1, 7)
+    errors = [err(h) for h in h]
+
+    fig, ax = plt.subplots()
+    ax.plot(1/h, errors, '-o')
+    ax.plot(1/h, h, '--k', label='linear')
+    ax.set_xlabel(r"$1/h$")
+    ax.set_ylabel("error")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    plt.show()
+
+def main():
+    # test()
+    convergence()
+
 
 
 if __name__ == '__main__':
