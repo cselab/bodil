@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import numpy as np
 import triangle as tr
 
@@ -55,8 +56,8 @@ def grad_pse(x, y, f, eps, order=2):
     fvals = f(x, y)
     df = np.subtract.outer(fvals, fvals)
 
-    dfdx = -np.sum(df * eta_first_derivative_fs(dx / eps, dy / eps, axis=0, order=order) / eps**2, axis=0)
-    dfdy = -np.sum(df * eta_first_derivative_fs(dx / eps, dy / eps, axis=1, order=order) / eps**2, axis=0)
+    dfdx = -np.sum(df * eta_first_derivative_fs(dx / eps, dy / eps, axis=0, order=order), axis=0)
+    dfdy = -np.sum(df * eta_first_derivative_fs(dx / eps, dy / eps, axis=1, order=order), axis=0)
 
     return dfdx, dfdy
 
@@ -95,10 +96,16 @@ def main():
     dfdx_exact, dfdy_exact = grad_f_exact(x, y)
     dfdx_pse, dfdy_pse = grad_pse(x, y, f, eps, order=2)
 
+    norm = mcolors.Normalize(
+        vmin=min(dfdx_exact.min(), dfdx_pse.min()),
+        vmax=max(dfdx_exact.max(), dfdx_pse.max())
+    )
+    cmap = plt.cm.viridis
+
     fig, axes = plt.subplots(figsize=(8,4), ncols=2)
     ax = axes[0]
     ax.triplot(x, y, triangles, c='k', lw=0.1)
-    ax.scatter(x, y, c=dfdx_exact)
+    ax.scatter(x, y, c=dfdx_exact, norm=norm, cmap=cmap)
     ax.set_xlim(-L/2, L/2)
     ax.set_ylim(-L/2, L/2)
     ax.set_aspect('equal')
@@ -106,11 +113,19 @@ def main():
 
     ax = axes[1]
     ax.triplot(x, y, triangles, c='k', lw=0.1)
-    ax.scatter(x, y, c=dfdx_pse)
+    ax.scatter(x, y, c=dfdx_pse, norm=norm, cmap=cmap)
     ax.set_xlim(-L/2, L/2)
     ax.set_ylim(-L/2, L/2)
     ax.set_aspect('equal')
     ax.axis("off")
+
+    print(eps)
+    print(dfdx_pse / dfdx_exact)
+
+    # fig.colorbar(
+    #     plt.cm.ScalarMappable(norm=norm, cmap=cmap),
+    #     ax=axes, orientation="vertical", shrink=0.8, label="df/dx"
+    # )
 
     plt.tight_layout()
     plt.show()
