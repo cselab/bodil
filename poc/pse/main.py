@@ -96,6 +96,12 @@ def main():
     dfdx_exact, dfdy_exact = grad_f_exact(x, y)
     dfdx_pse, dfdy_pse = grad_pse(x, y, f, eps, order=2)
 
+    fig, ax = plt.subplots()
+    ax.plot(dfdx_exact, dfdx_pse, 'ok')
+    ax.set_aspect('equal')
+    ax.plot([-3, 3], [-3, 3], '--k')
+    plt.show()
+
     norm = mcolors.Normalize(
         vmin=min(dfdx_exact.min(), dfdx_pse.min()),
         vmax=max(dfdx_exact.max(), dfdx_pse.max())
