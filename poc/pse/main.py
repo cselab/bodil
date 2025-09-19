@@ -119,14 +119,6 @@ def main():
     ax.set_aspect('equal')
     ax.axis("off")
 
-    print(eps)
-    print(dfdx_pse / dfdx_exact)
-
-    # fig.colorbar(
-    #     plt.cm.ScalarMappable(norm=norm, cmap=cmap),
-    #     ax=axes, orientation="vertical", shrink=0.8, label="df/dx"
-    # )
-
     plt.tight_layout()
     plt.show()
 
