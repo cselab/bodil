@@ -14,7 +14,7 @@ def grad_f_exact(x, y):
 def triangle_areas(vertices, triangles):
     v0 = vertices[triangles[:,1]] - vertices[triangles[:,0]]
     v1 = vertices[triangles[:,2]] - vertices[triangles[:,0]]
-    A = 0.5 * np.abs(v0[:,0]*v1[:,1] - v0[:,1]*v1[:,0])
+    A = 0.5 * (v0[:,0]*v1[:,1] - v0[:,1]*v1[:,0])
     return A
 
 def per_triangle_grad_scalar(vertices, triangles, f):
@@ -39,7 +39,7 @@ def per_triangle_grad_scalar(vertices, triangles, f):
 
 def per_vertex_grad_scalar(vertices, triangles, f):
     Gtx, Gty = per_triangle_grad_scalar(vertices, triangles, f)
-    A = triangle_areas(vertices, triangles)
+    A = np.abs(triangle_areas(vertices, triangles))
     n = vertices.shape[0]
     Gx = np.zeros(n)
     Gy = np.zeros(n)
@@ -56,6 +56,19 @@ def per_vertex_grad_scalar(vertices, triangles, f):
     Gx /= W
     Gy /= W
     return Gx, Gy
+
+def vertex_areas(vertices, triangles):
+    p = vertices
+    tri = triangles
+    a = p[tri[:,1]] - p[tri[:,0]]
+    b = p[tri[:,2]] - p[tri[:,0]]
+    Atri = 0.5 * np.abs(a[:,0]*b[:,1] - a[:,1]*b[:,0])
+    nverts = len(vertices)
+    A = np.zeros(nverts)
+    np.add.at(A, tri[:,0], Atri/3)
+    np.add.at(A, tri[:,1], Atri/3)
+    np.add.at(A, tri[:,2], Atri/3)
+    return A
 
 def ring_segments(offset, n):
     idx = np.arange(offset, offset + n)
@@ -79,7 +92,7 @@ def test():
     #  p : PSLG (respect segments)
     #  D : produce Delaunay (optional)
     area = 0.02
-    mesh = tr.triangulate(poly, f"q30a{area}")
+    mesh = tr.triangulate(poly, f"q30a{area:.10f}")
     vertices = mesh["vertices"]
     triangles = mesh["triangles"]
     x = vertices[:,0]
@@ -134,7 +147,7 @@ def convergence():
 
     def err(h):
         area = h**2 / 2
-        mesh = tr.triangulate(poly, f"q30a{area}")
+        mesh = tr.triangulate(poly, f"pq30a{area:.10f}")
         vertices = mesh["vertices"]
         triangles = mesh["triangles"]
         x = vertices[:,0]
@@ -142,10 +155,12 @@ def convergence():
 
         dfdx_exact, dfdy_exact = grad_f_exact(x, y)
         dfdx, dfdy = per_vertex_grad_scalar(vertices, triangles, f(x, y))
+        A = vertex_areas(vertices, triangles)
+        err2 = A * ((dfdx - dfdx_exact)**2 + (dfdy - dfdy_exact)**2)
 
-        return np.sqrt(np.mean((dfdx - dfdx_exact)**2 + (dfdy - dfdy_exact)**2))
+        return np.sqrt(np.sum(err2) / np.sum(A))
 
-    h = 1 / 2**np.arange(1, 7)
+    h = 1 / 2**np.arange(1, 10)
     errors = [err(h) for h in h]
 
     fig, ax = plt.subplots()
@@ -158,7 +173,7 @@ def convergence():
     plt.show()
 
 def main():
-    # test()
+    test()
     convergence()
 
 
