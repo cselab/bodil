@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import triangle as tr
 
 def f(x, y):
     return x**2 + 2 * y**2 + x * y
@@ -59,14 +60,35 @@ def grad_pse(x, y, f, eps, order=2):
 
     return dfdx, dfdy
 
+def ring_segments(offset, n):
+    idx = np.arange(offset, offset + n)
+    return np.column_stack([idx, np.roll(idx, -1)])
 
 def main():
-    rng = np.random.default_rng(0xC0FFEE)
-    n = 200
     L = 2
-    x = rng.uniform(-L/2, L/2, n)
-    y = rng.uniform(-L/2, L/2, n)
 
+    poly = {
+        'vertices': np.array([[-L/2, -L/2],
+                              [-L/2, +L/2],
+                              [+L/2, +L/2],
+                              [+L/2, -L/2],
+                              ]),
+        'segments': ring_segments(0, 4)
+    }
+
+    # Flags:
+    #  q : quality mesh (default min angle ~20°; use q30 for 30°)
+    #  a : max triangle area (e.g., a0.1)
+    #  p : PSLG (respect segments)
+    #  D : produce Delaunay (optional)
+    area = 0.02
+    mesh = tr.triangulate(poly, f"q30a{area}")
+    vertices = mesh["vertices"]
+    triangles = mesh["triangles"]
+    x = vertices[:,0]
+    y = vertices[:,1]
+
+    n = len(x)
     rho = n / L**2
     eps = 2 / np.sqrt(rho)
 
@@ -75,16 +97,21 @@ def main():
 
     fig, axes = plt.subplots(figsize=(8,4), ncols=2)
     ax = axes[0]
+    ax.triplot(x, y, triangles, c='k', lw=0.1)
     ax.scatter(x, y, c=dfdx_exact)
     ax.set_xlim(-L/2, L/2)
     ax.set_ylim(-L/2, L/2)
     ax.set_aspect('equal')
+    ax.axis("off")
 
     ax = axes[1]
+    ax.triplot(x, y, triangles, c='k', lw=0.1)
     ax.scatter(x, y, c=dfdx_pse)
     ax.set_xlim(-L/2, L/2)
     ax.set_ylim(-L/2, L/2)
     ax.set_aspect('equal')
+    ax.axis("off")
+
     plt.tight_layout()
     plt.show()
 
