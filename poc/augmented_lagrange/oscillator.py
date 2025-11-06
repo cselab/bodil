@@ -90,32 +90,35 @@ z = pack(x_guess, v_guess)
 lam = np.zeros(2 * N)
 mu = 0.1
 
+
+
+x_curr, v_curr = unpack(z)
+c_curr = constraints(x_curr, v_curr)
+cnorm = np.linalg.norm(c_curr)
+print(f"Outer {0}: ||c||={cnorm:.3e}, mu={mu:.2e}, x0={x_curr[0]:.3f}, v0={v_curr[0]:.3f}, objective={objective(x_curr):.3e}")
+
 # ---- Augmented Lagrangian loop ----
 prev_cnorm = np.inf
-for outer in range(8):
+for outer in range(2):
     for inner in range(5):
         dz, dlam, c = kkt_step(z, lam, mu)
-        alpha = 1.0
-        phi0 = objective(unpack(z)[0]) + lam@c + 0.5*mu*(c@c)
-        for _ in range(10): # line search
-            z_try = z + alpha*dz
-            c_try = constraints(*unpack(z_try))
-            phi_try = objective(unpack(z_try)[0]) + lam@c_try + 0.5*mu*(c_try@c_try)
-            if phi_try <= phi0 - 1e-6*alpha*(dz@dz): break
-            alpha *= 0.5
-        z = z_try
-        if np.linalg.norm(c) < 1e-6: break
+        z = z + dz
+        if np.linalg.norm(c) < 1e-6:
+            break
 
     # λ update and adaptive μ
     x_curr, v_curr = unpack(z)
     c_curr = constraints(x_curr, v_curr)
     lam += mu * c_curr
     cnorm = np.linalg.norm(c_curr)
-    if cnorm < 0.8*prev_cnorm: pass
-    elif cnorm > 1.2*prev_cnorm: mu = max(mu*0.5, 1e-4)
-    else: mu = min(mu*1.5, 10.0)
+    if cnorm < 0.8 * prev_cnorm:
+        pass
+    elif cnorm > 1.2 * prev_cnorm:
+        mu = max(mu * 0.5, 1e-4)
+    else:
+        mu = min(mu * 1.5, 100.0)
     prev_cnorm = cnorm
-    print(f"Outer {outer}: ||c||={cnorm:.3e}, mu={mu:.2e}, x0={x_curr[0]:.3f}, v0={v_curr[0]:.3f}, objective={objective(x_curr):.3e}")
+    print(f"Outer {outer+1}: ||c||={cnorm:.3e}, mu={mu:.2e}, x0={x_curr[0]:.3f}, v0={v_curr[0]:.3f}, objective={objective(x_curr):.3e}")
 
 x_opt, v_opt = unpack(z)
 print(f"\nRecovered ICs: x0={x_opt[0]:.4f}, v0={v_opt[0]:.4f}")
