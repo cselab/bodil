@@ -12,10 +12,11 @@ x_true = np.cos(omega * t)
 v_true = -omega * np.sin(omega * t)
 
 # Select a few observation indices (sparse data)
-ndata = 10
+ndata = 15
+sigma = 0.2
 obs_idx = np.random.choice(np.arange(N), size=ndata, replace=False)
 rng = np.random.default_rng(0)
-x_obs = x_true[obs_idx] + 0.1 * rng.normal(size=obs_idx.shape)
+x_obs = rng.normal(x_true[obs_idx], sigma)
 
 # ---- Variable layout ----
 # z = [x0..xN, v0..vN]
@@ -35,7 +36,7 @@ def constraints(x, v):
         c[2*k+1] = x[k+1] - x[k] - dt*v[k+1]
     return c
 
-def constraint_jacobian(x, v):
+def constraints_jacobian(x, v):
     A = np.zeros((2*N, 2*(N+1)))
     for k in range(N):
         # r_v
@@ -64,7 +65,7 @@ def grad_objective(x, v):
 def kkt_step(z, lam, mu):
     x, v = unpack(z)
     c = constraints(x, v)
-    A = constraint_jacobian(x, v)
+    A = constraints_jacobian(x, v)
     gJ = grad_objective(x, v)
     rhs1 = -(gJ + A.T @ (lam + mu*c))
     rhs2 = -c
@@ -84,13 +85,9 @@ def kkt_step(z, lam, mu):
 
 # ---- Initialization ----
 x_guess = np.zeros(N+1); v_guess = np.zeros(N+1)
-x_guess[0], v_guess[0] = 0.5, 0.2  # wrong initial conditions
-for k in range(N):
-    v_guess[k+1] = v_guess[k] - dt * omega**2 * x_guess[k]
-    x_guess[k+1] = x_guess[k] + dt * v_guess[k]
 
 z = pack(x_guess, v_guess)
-lam = np.zeros(2*N)
+lam = np.zeros(2 * N)
 mu = 0.1
 
 # ---- Augmented Lagrangian loop ----
@@ -100,7 +97,7 @@ for outer in range(8):
         dz, dlam, c = kkt_step(z, lam, mu)
         alpha = 1.0
         phi0 = objective(unpack(z)[0]) + lam@c + 0.5*mu*(c@c)
-        for _ in range(10):
+        for _ in range(10): # line search
             z_try = z + alpha*dz
             c_try = constraints(*unpack(z_try))
             phi_try = objective(unpack(z_try)[0]) + lam@c_try + 0.5*mu*(c_try@c_try)
@@ -118,7 +115,7 @@ for outer in range(8):
     elif cnorm > 1.2*prev_cnorm: mu = max(mu*0.5, 1e-4)
     else: mu = min(mu*1.5, 10.0)
     prev_cnorm = cnorm
-    print(f"Outer {outer}: ||c||={cnorm:.3e}, mu={mu:.2e}, x0={x_curr[0]:.3f}, v0={v_curr[0]:.3f}")
+    print(f"Outer {outer}: ||c||={cnorm:.3e}, mu={mu:.2e}, x0={x_curr[0]:.3f}, v0={v_curr[0]:.3f}, objective={objective(x_curr):.3e}")
 
 x_opt, v_opt = unpack(z)
 print(f"\nRecovered ICs: x0={x_opt[0]:.4f}, v0={v_opt[0]:.4f}")
