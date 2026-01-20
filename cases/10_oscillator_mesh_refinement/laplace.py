@@ -120,8 +120,8 @@ def main():
         H = H.detach().numpy()
         cov = np.linalg.inv(H)
 
-        with open(f'cov_nt_{nt}.npy', 'wb') as f:
-            np.save(f, cov)
+        # with open(f'cov_nt_{nt}.npy', 'wb') as f:
+        #     np.save(f, cov)
 
         i = nt
         mu = y[i]
