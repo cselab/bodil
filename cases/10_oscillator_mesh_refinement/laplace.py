@@ -3,6 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
+
 import torch
 from torch.optim import Adam
 
@@ -33,9 +35,8 @@ def main():
     v0 = 0.2
 
     seed = 2349873
-    num_epochs = 5000
-    num_samples = 10000
-    lr = 1e-3
+    num_epochs = 50000
+    lr = 1e-4
     num_data = 20
     sigma_data = 0.1
     beta = 1e4
@@ -44,8 +45,16 @@ def main():
     td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
     xd = torch.from_numpy(xd)
 
-    for nt in [31, 63, 127]:
+    nts = []
+    mus = []
+    sigmas = []
+
+    fig, ax = plt.subplots()
+    for nt in [15, 31, 63, 127, 255, 511, 1023, 2047]:
         t = np.linspace(0, T, nt + 1, endpoint=True)
+
+        if nt > 511:
+            num_epochs *= 3
 
         xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
         vexact = v0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
@@ -84,7 +93,7 @@ def main():
             loss.backward()
             optim.step()
             l = float(loss.detach().cpu().float())
-            if epoch % 1000 == 0:
+            if epoch % 10000 == 0:
                 print(f"epoch {epoch:06d}, loss {l:.6e}")
 
             losses.append(l)
@@ -98,87 +107,33 @@ def main():
         H = H.detach().numpy()
         cov = np.linalg.inv(H)
 
-        if False:
-            fig, ax = plt.subplots()
-            im = ax.imshow(cov, origin='lower', cmap="seismic")
-            fig.colorbar(im, ax=ax)
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
-            plt.show()
-            plt.close
-
         with open(f'cov_nt_{nt}.npy', 'wb') as f:
             np.save(f, cov)
 
-        # sample solutions x.
-        num_samples = 5000
-        samples = np.zeros((len(x) + len(v), num_samples))
+        i = nt
+        mu = y[i]
+        sigma = np.sqrt(cov[i, i])
 
-        eigvals, eigvecs = np.linalg.eig(H)
+        nts.append(nt+1)
+        mus.append(mu)
+        sigmas.append(sigma)
 
-        for k in range(num_samples):
-            z = rng.normal(0, 1/np.sqrt(eigvals), len(x) + len(v))
-            samples[:,k] = y + eigvecs @ z
+        xx = np.linspace(0, 1, 500)
+        px = norm.pdf(xx, mu, sigma)
 
-        xmean = np.mean(samples[:len(x)], axis=1)
-        xlo = np.quantile(samples[:len(x)], q=0.05, axis=1)
-        xhi = np.quantile(samples[:len(x)], q=0.95, axis=1)
+        ax.plot(xx, px, label=f'nt={nt+1}')
 
-        vmean = np.mean(samples[len(x):], axis=1)
-        vlo = np.quantile(samples[len(x):], q=0.05, axis=1)
-        vhi = np.quantile(samples[len(x):], q=0.95, axis=1)
-
-        if False:
-            fig, axes = plt.subplots(ncols=2, figsize=(9.6,4.8))
-            ax = axes[0]
-            ax.fill_between(t, xlo, xhi, lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
-            ax.plot(t, x, '-r', label='MAP')
-            ax.plot(t, xexact, '--k', label='exact')
-            ax.plot(td, xd.detach().numpy(), '+k', label='data')
-            ax.set_xlabel(r"$t$")
-            ax.set_ylabel(r"$x$")
-            ax.set_xlim(0, T)
-            ax.set_ylim(-1.5, 1.5)
-            ax.legend(frameon=False)
-
-            ax = axes[1]
-            ax.fill_between(t, vlo, vhi, lw=0, alpha=0.2, color='r')
-            ax.plot(t, v, '-r')
-            ax.plot(t, vexact, '--k')
-            ax.set_xlabel(r"$t$")
-            ax.set_ylabel(r"$v$")
-            ax.set_xlim(0, T)
-            ax.set_ylim(-1.5, 1.5)
-
-            plt.tight_layout()
-            plt.show()
-
-        data = {
-            't': t,
-            'xmap': x,
-            'xmean': x,
-            'xexact': xexact,
-            'x05': xlo,
-            'x95': xhi,
-            'vmap': v,
-            'vmean': v,
-            'vexact': vexact,
-            'v05': vlo,
-            'v95': vhi
-        }
-
-        df = pd.DataFrame(data)
-        df.to_csv(f'nt_{nt}.csv', index=False)
+    ax.legend()
+    plt.show()
 
     data = {
-        't': td,
-        'x': xd.detach().numpy()
+        'Nt': nts,
+        'mu': mus,
+        'sigma': sigmas
     }
 
     df = pd.DataFrame(data)
-    df.to_csv('laplace_data.csv', index=False)
-
-
+    df.to_csv('pred_x_20.csv', index=False)
 
 
 if __name__ == '__main__':
