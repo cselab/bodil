@@ -50,18 +50,31 @@ def main():
     sigmas = []
 
     fig, ax = plt.subplots()
-    for nt in [15, 31, 63, 127, 255, 511, 1023, 2047]:
+
+    t_prev = None
+    y_prev = None
+
+    for nt in [15, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191]:
         t = np.linspace(0, T, nt + 1, endpoint=True)
 
         if nt > 511:
-            num_epochs *= 3
+            lr = 5e-5
 
         xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
         vexact = v0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
 
         dt = t[1] - t[0]
 
-        y = torch.zeros((nt + 1) * 2, requires_grad=True)
+        if y_prev is None:
+            y_init = np.zeros((nt + 1) * 2, dtype=np.float64)
+        else:
+            x_prev = y_prev[:len(t_prev)]
+            v_prev = y_prev[len(t_prev):]
+            x_init = np.interp(t, t_prev, x_prev)
+            v_init = np.interp(t, t_prev, v_prev)
+            y_init = np.concatenate([x_init, v_init]).astype(np.float64)
+
+        y = torch.tensor(y_init, requires_grad=True)
 
         td_ids = torch.from_numpy((td / dt).astype(int))
 
@@ -85,7 +98,7 @@ def main():
             nlg -= torch.sum(-data_res**2 / (2 * sigma_data**2)) - num_data/2 * np.log(2 * np.pi * sigma_data**2)
             return nlg
 
-        epochs = list(range(num_epochs))
+        epochs = list(range(num_epochs+1))
         losses = []
         for epoch in epochs:
             optim.zero_grad()
@@ -122,6 +135,10 @@ def main():
         px = norm.pdf(xx, mu, sigma)
 
         ax.plot(xx, px, label=f'nt={nt+1}')
+
+        t_prev = t.copy()
+        y_prev = y.copy()
+
 
     ax.legend()
     plt.show()
