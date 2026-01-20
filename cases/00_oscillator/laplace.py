@@ -33,7 +33,7 @@ def main():
     v0 = 0.2
 
     seed = 2349873
-    num_epochs = 5000
+    num_epochs = 10000
     num_samples = 10000
     lr = 1e-3
     num_data = 20
@@ -43,7 +43,7 @@ def main():
 
     td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
 
-    nt = 63
+    nt = 255
     t = np.linspace(0, T, nt + 1, endpoint=True)
 
     xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)

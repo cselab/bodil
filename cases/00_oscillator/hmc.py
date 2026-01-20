@@ -35,8 +35,8 @@ def main():
     v0 = 0.2
 
     seed = 2349873
-    num_epochs = 5000
-    num_samples = 10000
+    num_epochs = 10000
+    num_samples = 5000
     lr = 1e-3
     num_data = 20
     sigma_data = 0.1
@@ -45,7 +45,7 @@ def main():
 
     td, xd = generate_data(num_data, T, omega=omega, x0=x0, v0=v0, rng=rng, sigma=sigma_data)
 
-    nt = 63
+    nt = 255
     t = np.linspace(0, T, nt + 1, endpoint=True)
     dt = t[1] - t[0]
     y = torch.zeros((nt + 1, 2), requires_grad=True)
@@ -86,7 +86,7 @@ def main():
         losses.append(l)
 
 
-    hmc = HMC([y], dt=0.008, L=10, M=1)
+    hmc = HMC([y], dt=0.002, L=500, M=1)
 
     def closure():
         hmc.zero_grad()
