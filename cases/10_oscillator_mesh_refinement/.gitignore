@@ -1,2 +1,3 @@
 *.npy
 pred_x_20.csv
+beta*.csv
