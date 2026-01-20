@@ -13,7 +13,7 @@ v_true = -omega * np.sin(omega * t)
 
 # Select a few observation indices (sparse data)
 ndata = 15
-sigma = 0.2
+sigma = 0.15
 obs_idx = np.random.choice(np.arange(N), size=ndata, replace=False)
 rng = np.random.default_rng(0)
 x_obs = rng.normal(x_true[obs_idx], sigma)
@@ -123,5 +123,5 @@ plt.plot(t, x_true, 'k--', label='True')
 plt.plot(t[obs_idx], x_obs, 'ro', label='Sparse data')
 plt.plot(t, x_opt, 'b-', label='Recovered trajectory')
 plt.legend(); plt.xlabel('t'); plt.ylabel('x')
-plt.title('ODIL (Newton) with sparse data and unknown ICs')
+plt.title('ALM-ODIL with sparse data and unknown ICs')
 plt.show()
