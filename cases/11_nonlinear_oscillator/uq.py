@@ -89,7 +89,7 @@ def main():
 
     num_samples = 100000
     burnin = 100000
-    step0 = 0.02                   # initial proposal std
+    step0 = 0.01                   # initial proposal std
     target_acc = 0.35              # good for d=3
     adapt_interval = 2000          # how often to update step during burn-in
     gamma0 = 0.5                   # adaptation gain (will decay)
