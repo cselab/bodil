@@ -64,7 +64,7 @@ def main():
     v0 = 0.0
 
     seed = 2349873
-    num_epochs = 100000
+    num_epochs = 50000
     lr = 5e-4
     num_data = 50
     sigma_data = 0.1
@@ -86,7 +86,7 @@ def main():
     td_ids = torch.from_numpy((td / dt).astype(int))
     xd = torch.from_numpy(xd)
 
-    for beta in [1e2, 1e3, 1e4, 1e5, 1e6]:
+    for beta in [1e1]: #[1e2, 1e3, 1e4, 1e5, 1e6]:
         print(f'beta = {beta}')
 
         if yprev is None:
@@ -147,29 +147,25 @@ def main():
             plt.show()
             plt.close()
 
-        # sample solutions x.
-        num_samples = 5000
-        samples = np.zeros((1 + len(x) + len(v), num_samples))
+        std = np.sqrt(np.diag(cov))
 
-        eigvals, eigvecs = np.linalg.eig(H)
+        # 5% and 95% normal quantiles
+        z_lo = norm.ppf(0.05)
+        z_hi = norm.ppf(0.95)
 
-        for k in range(num_samples):
-            z = rng.normal(0, 1/np.sqrt(eigvals), 1 + len(x) + len(v))
-            samples[:,k] = y + eigvecs @ z
+        omegasq_mean = omegasq
+        omegasq_lo = omegasq + z_lo * std[0]
+        omegasq_hi = omegasq + z_hi * std[0]
 
-        omegasq_mean = np.mean(samples[0])
-        omegasq_lo = np.quantile(samples[0], q=0.05)
-        omegasq_hi = np.quantile(samples[0], q=0.95)
+        xmean = x
+        xlo = x + z_lo * std[1:1+len(x)]
+        xhi = x + z_hi * std[1:1+len(x)]
 
-        xmean = np.mean(samples[1:1+len(x)], axis=1)
-        xlo = np.quantile(samples[1:1+len(x)], q=0.05, axis=1)
-        xhi = np.quantile(samples[1:1+len(x)], q=0.95, axis=1)
+        vmean = v
+        vlo = v + z_lo * std[1+len(x):]
+        vhi = v + z_hi * std[1+len(x):]
 
-        vmean = np.mean(samples[1+len(x):], axis=1)
-        vlo = np.quantile(samples[1+len(x):], q=0.05, axis=1)
-        vhi = np.quantile(samples[1+len(x):], q=0.95, axis=1)
-
-        if False:
+        if True:
             fig, axes = plt.subplots(ncols=2, figsize=(9.6,4.8))
             ax = axes[0]
             ax.fill_between(t, xlo, xhi, lw=0, alpha=0.2, color='r', label='5-95% quantiles of posterior')
