@@ -3,6 +3,7 @@
 B-ODIL with beta selection using validation data.
 """
 
+import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -135,12 +136,25 @@ def fit_map_and_laplace(
     return y_map, cov, losses
 
 
+def parse_args():
+    p = argparse.ArgumentParser(description="B-ODIL with beta selection using validation data")
+    p.add_argument("--num-data", type=int, default=50, help="Number of measurements")
+    p.add_argument(
+        "--datagen",
+        choices=["duffing", "linear"],
+        default="duffing",
+        help="Data generation model (duffing => k2>0, linear => k2=0)",
+    )
+    p.add_argument("--no-plot", action="store_true", help="Disable plotting")
+    return p.parse_args()
+
+
 def main():
+    args = parse_args()
+
     T = 20.0
-    mispecified_model = True
-    if mispecified_model:
+    if args.datagen == "duffing":
         datagen = "Duffing"
-        # generate Duffing nonlinear spring instead of the assume linear one
         k1 = 1.0
         k2 = 10.0
         m = 15.0
@@ -158,11 +172,11 @@ def main():
     rng = np.random.default_rng(seed=seed)
 
     # optimization
-    num_epochs = 20000
+    num_epochs = 50000
     lr = 5e-4
 
     # measurements
-    num_data = 50
+    num_data = args.num_data
     sigma_data = 0.1
 
     td, xd_np, texact, xexact, vexact = generate_data(
@@ -296,31 +310,31 @@ def main():
     vlo = v + z_lo * std[1 + len(x) :]
     vhi = v + z_hi * std[1 + len(x) :]
 
-    # Plot
-    fig, axes = plt.subplots(ncols=2, figsize=(9.6, 4.8))
-    ax = axes[0]
-    ax.fill_between(t, xlo, xhi, lw=0, alpha=0.2, color="r", label="5–95% (Laplace)")
-    ax.plot(t, x, "-r", label="MAP")
-    ax.plot(texact, xexact, "--k", label="exact")
-    ax.plot(td, xd_np, "+k", label="data")
-    ax.set_xlabel(r"$t$")
-    ax.set_ylabel(r"$x$")
-    ax.set_xlim(0, T)
-    ax.set_ylim(-3, 3)
-    ax.legend(frameon=False)
-    ax.set_title(f"Selected beta = {best_beta:.1e}")
+    if not args.no_plot:
+        fig, axes = plt.subplots(ncols=2, figsize=(9.6, 4.8))
+        ax = axes[0]
+        ax.fill_between(t, xlo, xhi, lw=0, alpha=0.2, color="r", label="5–95% (Laplace)")
+        ax.plot(t, x, "-r", label="MAP")
+        ax.plot(texact, xexact, "--k", label="exact")
+        ax.plot(td, xd_np, "+k", label="data")
+        ax.set_xlabel(r"$t$")
+        ax.set_ylabel(r"$x$")
+        ax.set_xlim(0, T)
+        ax.set_ylim(-3, 3)
+        ax.legend(frameon=False)
+        ax.set_title(f"Selected beta = {best_beta:.1e}")
 
-    ax = axes[1]
-    ax.fill_between(t, vlo, vhi, lw=0, alpha=0.2, color="r")
-    ax.plot(t, v, "-r")
-    ax.plot(texact, vexact, "--k")
-    ax.set_xlabel(r"$t$")
-    ax.set_ylabel(r"$v$")
-    ax.set_xlim(0, T)
-    ax.set_ylim(-3, 3)
+        ax = axes[1]
+        ax.fill_between(t, vlo, vhi, lw=0, alpha=0.2, color="r")
+        ax.plot(t, v, "-r")
+        ax.plot(texact, vexact, "--k")
+        ax.set_xlabel(r"$t$")
+        ax.set_ylabel(r"$v$")
+        ax.set_xlim(0, T)
+        ax.set_ylim(-3, 3)
 
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
 
     xexact_ = np.interp(t, texact, xexact)
     vexact_ = np.interp(t, texact, vexact)
