@@ -160,6 +160,7 @@ def main():
         m = 15.0
         x0 = 2.0
         v0 = 0.0
+        sigma_data = 0.4
     else:
         datagen = "linear"
         k1 = 1.0
@@ -167,6 +168,7 @@ def main():
         m = 1.0
         x0 = 0.5
         v0 = 0.2
+        sigma_data = 0.1
 
     seed = 2349873
     rng = np.random.default_rng(seed=seed)
@@ -177,7 +179,6 @@ def main():
 
     # measurements
     num_data = args.num_data
-    sigma_data = 0.1
 
     td, xd_np, texact, xexact, vexact = generate_data(
         nt=10000,
