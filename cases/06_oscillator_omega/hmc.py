@@ -7,7 +7,7 @@ from tqdm import tqdm
 import torch
 from torch.optim import Adam
 
-from uq_odil.HMC import HMC
+from bodil.HMC import HMC
 
 def generate_data(num_data, T, omega, x0, v0, rng, sigma):
     """

@@ -8,7 +8,7 @@ import torch
 from scipy.ndimage import zoom
 
 from prepare_data import load_data, SEG_CODE, restore_cropped_data, get_grid_spacing
-from uq_odil.multigrid import MultigridField
+from bodil.multigrid import MultigridField
 from initial_guess import get_initial_guess
 from utils import dump_vtk
 

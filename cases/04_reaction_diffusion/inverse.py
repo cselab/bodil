@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import torch
 
-from uq_odil.multigrid import MultigridField
+from bodil.multigrid import MultigridField
 
 def main():
     parser = argparse.ArgumentParser()

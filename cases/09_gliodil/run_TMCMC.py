@@ -11,7 +11,7 @@ import sys
 import torch
 
 from gliodil import run_gliodil
-from uq_odil.TMCMC import TMCMC
+from bodil.TMCMC import TMCMC
 from prepare_data import load_data
 
 def compute_loss(path):

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from uq_odil.multigrid import MultigridField
+from bodil.multigrid import MultigridField
 
 def main():
     Lx = 2 * np.pi # periodic direction

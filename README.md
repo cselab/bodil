@@ -1,4 +1,4 @@
-# UQ-ODIL
+# B-ODIL
 
 Code accompanying the paper:
 
@@ -15,7 +15,7 @@ uncertainties, using either a Laplace approximation or Hamiltonian Monte Carlo
 
 ## Repository layout
 
-- `uq_odil/` — core library (models, priors, likelihoods, samplers).
+- `bodil/` — core library (models, priors, likelihoods, samplers).
 - `cases/` — self-contained scripts reproducing the paper's examples (see below).
 - `poc/` — proof-of-concept and exploratory scripts.
 - `test/` — tests.
@@ -63,8 +63,8 @@ the original work:
 ## Install
 
 ```
-conda create -n uqodil python=3.12
-conda activate uqodil
+conda create -n bodil python=3.12
+conda activate bodil
 pip install torch dpdprops matplotlib pint pandas
 conda install -c conda-forge mpi4py mpich
 # optional:
@@ -79,10 +79,10 @@ pip install triangle
 
 ```
 module load gcc/14.2.0-fasrc01 openmpi/5.0.5-fasrc01 python/3.12.8-fasrc01
-mamba create -n uqodil python=3.12.8 numpy pip wheel
-mamba install -n uqodil -y cuda-toolkit=12.1.0 -c "nvidia/label/cuda-12.1.0"
-mamba install -n uqodil -y pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
-mamba activate uqodil
+mamba create -n bodil python=3.12.8 numpy pip wheel
+mamba install -n bodil -y cuda-toolkit=12.1.0 -c "nvidia/label/cuda-12.1.0"
+mamba install -n bodil -y pytorch pytorch-cuda=12.1 -c pytorch -c nvidia
+mamba activate bodil
 pip install dpdprops matplotlib pint pandas mpi4py nibabel
 ```
 

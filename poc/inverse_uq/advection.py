@@ -26,7 +26,7 @@ def main():
     du/dt + a * du/dx = 0
     with periodic B.C. and a sine initial conditions.
 
-    The parameter a is unknown and we find it through UQ-ODIL.
+    The parameter a is unknown and we find it through B-ODIL.
     """
     L = 1.0
     T = 1.0

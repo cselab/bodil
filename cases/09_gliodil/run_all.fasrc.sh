@@ -12,10 +12,10 @@ run_case() {
     patient_code=$1; shift
     sigma_data=$1; shift
 
-    outdir=$SCRATCH/uq-odil/gliodil/results_patient_${patient_code}_sigma_data_${sigma_data}_lambda_pde_${lambda_pde}_lambda_ic_${lambda_ic}_nsamples_${nsamples}
+    outdir=$SCRATCH/bodil/gliodil/results_patient_${patient_code}_sigma_data_${sigma_data}_lambda_pde_${lambda_pde}_lambda_ic_${lambda_ic}_nsamples_${nsamples}
     mkdir -p $outdir
 
-    data_path=$SCRATCH/uq-odil/data_GliODIL_essential/data_${patient_code}
+    data_path=$SCRATCH/bodil/data_GliODIL_essential/data_${patient_code}
 
     #extra="--restart-from $outdir/out_TMCMC/__checkpoint"
     extra=""
@@ -35,7 +35,7 @@ run_case() {
 #SBATCH --mem=40G
 
 module load gcc/14.2.0-fasrc01 openmpi/5.0.5-fasrc01 python/3.12.8-fasrc01
-mamba activate uqodil
+mamba activate bodil
 
 srun --mpi=pmix -n $nprocs ./run_TMCMC.py \
        $data_path \

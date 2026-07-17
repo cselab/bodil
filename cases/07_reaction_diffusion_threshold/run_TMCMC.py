@@ -9,7 +9,7 @@ import sys
 import torch
 
 from inverse import run
-from uq_odil.TMCMC import TMCMC
+from bodil.TMCMC import TMCMC
 import collect_losses
 
 def main():

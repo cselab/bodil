@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from uq_odil.HMC import HMC
+from bodil.HMC import HMC
 
 def main():
     device = 'cpu'

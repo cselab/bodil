@@ -9,7 +9,7 @@ import torch
 from torch.optim import Adam
 from tqdm import tqdm
 
-from uq_odil.HMC import HMC
+from bodil.HMC import HMC
 from back_flows import CubeNoLid
 
 def main():

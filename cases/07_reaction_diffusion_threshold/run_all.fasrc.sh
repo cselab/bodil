@@ -7,7 +7,7 @@
 : ${nsamples=256}
 
 module load gcc/14.2.0-fasrc01 openmpi/5.0.5-fasrc01 python/3.12.8-fasrc01
-mamba activate uqodil
+mamba activate bodil
 
 run_case() {
     smoothness=$1; shift
@@ -15,7 +15,7 @@ run_case() {
     lambda_pde=$1; shift
     lambda_ic=$1; shift
 
-    outdir=$SCRATCH/uq-odil/reaction_diffusion/results_smoothness_${smoothness}_sigma_${sigma_data}_lambda_pde_${lambda_pde}_ic_${lambda_ic}
+    outdir=$SCRATCH/bodil/reaction_diffusion/results_smoothness_${smoothness}_sigma_${sigma_data}_lambda_pde_${lambda_pde}_ic_${lambda_ic}
     mkdir -p $outdir
 
     nodes=$(python -c "print($nprocs//$tasks_per_node)")
