@@ -225,6 +225,8 @@ def main():
     print(f"TRAIN size: {len(train_idx)}, VAL size: {len(val_idx)}")
     for beta in beta_grid:
         print(f"\nFitting beta = {beta:.1e} (TRAIN only)")
+        if beta > 1e5:
+            lr = 1e-4
         y_map, cov, _losses = fit_map_and_laplace(
             beta=beta,
             nt=nt,

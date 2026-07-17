@@ -124,7 +124,7 @@ def main():
     xexact = v0/omega * np.sin(omega * t) + x0 * np.cos(omega * t)
     vexact = v0 * np.cos(omega * t) - x0 * omega * np.sin(omega * t)
 
-    if 1:
+    if 0:
         fig, ax = plt.subplots()
         ax.fill_between(t, x_lo, x_hi, lw=0, color='r', alpha=0.2)
         ax.plot(t, x_mean, '-r')
@@ -143,13 +143,14 @@ def main():
 
     cov = (X.T @ X) / (num_samples - 1)
 
-    fig, ax = plt.subplots()
-    im = ax.imshow(cov, origin='lower', cmap="seismic")
-    fig.colorbar(im, ax=ax)
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-    plt.show()
-    plt.close()
+    if 0:
+        fig, ax = plt.subplots()
+        im = ax.imshow(cov, origin='lower', cmap="seismic")
+        fig.colorbar(im, ax=ax)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        plt.show()
+        plt.close()
 
     with open('hmc_cov.npy', 'wb') as f:
         np.save(f, cov)
